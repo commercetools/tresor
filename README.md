@@ -7,8 +7,8 @@ A Scala library to access secrets (credentials etc.) from different sources.
 ## Example
 
 ```scala
-import com.flowtick.tresor._
-import com.flowtick.tresor.vault._
+import com.drobisch.tresor._
+import com.drobisch.tresor.vault._
 
 val context = KeyValueContext(VaultConfig(apiUrl = "http://vault-host:8200/v1", token = "vault-token"))
 
