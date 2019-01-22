@@ -1,8 +1,8 @@
 package com.drobisch.tresor
 
 import cats.effect.IO
-import com.drobisch.tresor.vault.{KeyValueContext, Lease}
-import org.scalatest.{FlatSpec, Matchers}
+import com.drobisch.tresor.vault.{ KeyValueContext, Lease }
+import org.scalatest.{ FlatSpec, Matchers }
 
 class TresorSpec extends FlatSpec with Matchers {
 

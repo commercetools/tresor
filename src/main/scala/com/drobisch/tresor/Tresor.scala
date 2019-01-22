@@ -11,6 +11,7 @@ trait Provider[C[_], P, T] {
 }
 
 object Tresor {
-  def secret[C[_], P, T : Secret](key: String,
-                                  providerContext: P)(provider: Provider[C, P, T]): C[T] = provider.getSecret(key, providerContext)
+  def secret[C[_], P, T: Secret](
+    key: String,
+    providerContext: P)(provider: Provider[C, P, T]): C[T] = provider.getSecret(key, providerContext)
 }
