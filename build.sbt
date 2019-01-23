@@ -55,10 +55,15 @@ libraryDependencies ++= Seq(
   "io.circe" %% "circe-core",
   "io.circe" %% "circe-generic",
   "io.circe" %% "circe-parser"
-).map(_ % circeVersion)
+).map(_ % circeVersion % Provided)
 
 libraryDependencies ++= Seq(
   "org.typelevel" %% "cats-effect" % "1.2.0",
   "com.softwaremill.sttp" %% "core" % "1.5.7",
-  "org.scalatest" %% "scalatest" % "3.0.5" % Test
+  "org.slf4j" % "slf4j-api" % "1.7.25" % Provided,
+  "org.apache.logging.log4j" % "log4j-api" % "2.11.1" % Test,
+  "org.apache.logging.log4j" % "log4j" % "2.11.1" % Test,
+  "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.11.1" % Test,
+  "org.scalatest" %% "scalatest" % "3.0.5" % Test,
+  "com.github.tomakehurst" % "wiremock-standalone" % "2.19.0" % Test
 )

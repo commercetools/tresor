@@ -1,22 +1,20 @@
 package com.drobisch.tresor
 
-import cats.effect.IO
-import com.drobisch.tresor.vault.{ KeyValueContext, Lease }
+import cats.effect._
 import org.scalatest.{ FlatSpec, Matchers }
 
-class TresorSpec extends FlatSpec with Matchers {
+class TresorSpec extends FlatSpec with Matchers with WireMockSupport {
+  case class TestContext(data: Map[String, Option[String]])
 
-  object TestProvider extends Provider[IO, KeyValueContext, Lease] {
-    override def getSecret(key: String, providerContext: KeyValueContext): IO[Lease] = IO.pure(Lease(Map("token" -> "value")))
+  class TestProvider[F[_]] extends Provider[F, TestContext, DefaultSecret] {
+    override def secret(providerContext: TestContext)(implicit sync: Sync[F]): F[DefaultSecret] =
+      sync.pure(DefaultSecret(providerContext.data))
   }
 
-  "Tresor" should "get secret from provider" in {
-    import com.drobisch.tresor.vault._
+  "Tresor" should "get secret from test provider" in {
+    val testContext = TestContext(Map("foo" -> Some("bar")))
 
-    val context = KeyValueContext(VaultConfig(apiUrl = "http://localhost:8200/v1", token = "vault-token"))
-
-    val expectedLease = Lease(Map("token" -> "value"))
-
-    Tresor.secret("secret", context)(provider = TestProvider).unsafeRunSync() should be(expectedLease)
+    Tresor(provider = new TestProvider[IO]).secret(testContext).unsafeRunSync() should be(DefaultSecret(testContext.data))
   }
+
 }
