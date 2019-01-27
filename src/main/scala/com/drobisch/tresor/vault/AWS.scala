@@ -24,10 +24,26 @@ private[vault] final case class AwsResponseDTO(
   lease_duration: Option[Long],
   data: Option[Map[String, Option[String]]])
 
-class AWS[F[_]] extends Provider[F, AwsContext, Lease] with HttpSupport {
+/**
+ * implementation of the vault AWS engine API
+ *
+ * https://www.vaultproject.io/api/secret/aws/index.html
+ *
+ * @tparam F context type to use
+ */
+class AWS[F[_]] extends Provider[AWS[F], F, AwsContext, Lease] with HttpSupport {
   private val log = LoggerFactory.getLogger(getClass)
 
-  override def secret(awsContext: AwsContext)(implicit sync: Sync[F]): F[Lease] = sync.flatMap(sync.delay {
+  /**
+   * create a aws engine credential
+   *
+   * https://www.vaultproject.io/api/secret/aws/index.html#generate-credentials
+   *
+   * @param awsContext context
+   * @param sync context instance
+   * @return a new lease for aws resources
+   */
+  def createCredentials(awsContext: AwsContext)(implicit sync: Sync[F]): F[Lease] = sync.flatMap(sync.delay {
     val roleArnPart = awsContext.roleArn.map(s"&role_arn=" + _).getOrElse("")
     val ttlPart = "&ttl=" + awsContext.ttlString.getOrElse("3600s")
     val infixPart = if (awsContext.useSts) "sts" else "creds"
@@ -43,6 +59,18 @@ class AWS[F[_]] extends Provider[F, AwsContext, Lease] with HttpSupport {
     parseLease(response)
   }
 
+  /**
+   * renew a lease
+   *
+   * https://www.vaultproject.io/api/system/leases.html#renew-lease
+   *
+   *
+   * @param lease a lease
+   * @param increment time to extend the lease in seconds
+   * @param vaultConfig vault api config
+   * @param sync context type
+   * @return extended lease
+   */
   def renew(lease: Lease, increment: Long, vaultConfig: VaultConfig)(implicit sync: Sync[F]): F[Lease] = lease.leaseId.map { leaseId =>
     sync.flatMap(sync.delay {
       sttp

@@ -1,6 +1,12 @@
 package com.drobisch
 
 package object tresor {
+
+  /**
+   * a default secret type that only carries a value map and is not renewable
+   *
+   * @param data secret values
+   */
   final case class DefaultSecret(data: Map[String, Option[String]])
 
   implicit object DefaultSecret extends Secret[DefaultSecret] {

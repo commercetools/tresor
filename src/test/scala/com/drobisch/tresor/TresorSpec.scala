@@ -6,8 +6,8 @@ import org.scalatest.{ FlatSpec, Matchers }
 class TresorSpec extends FlatSpec with Matchers with WireMockSupport {
   case class TestContext(data: Map[String, Option[String]])
 
-  class TestProvider[F[_]] extends Provider[F, TestContext, DefaultSecret] {
-    override def secret(providerContext: TestContext)(implicit sync: Sync[F]): F[DefaultSecret] =
+  class TestProvider[F[_]] extends Provider[TestProvider[F], F, TestContext, DefaultSecret] {
+    def secret(providerContext: TestContext)(implicit sync: Sync[F]): F[DefaultSecret] =
       sync.pure(DefaultSecret(providerContext.data))
   }
 

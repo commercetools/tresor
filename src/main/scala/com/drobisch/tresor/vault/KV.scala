@@ -15,10 +15,24 @@ private[vault] final case class KeyValueResponseDTO(
   lease_duration: Option[Long],
   data: Map[String, Option[String]])
 
-class KV[F[_]] extends Provider[F, KeyValueContext, Lease] with HttpSupport {
+/**
+ * implementation of the vault KV engine API
+ *
+ * https://www.vaultproject.io/api/secret/kv/kv-v1.html
+ *
+ * @tparam F context type to use
+ */
+class KV[F[_]] extends Provider[KV[F], F, KeyValueContext, Lease] with HttpSupport {
   private val log = LoggerFactory.getLogger(getClass)
 
-  override def secret(context: KeyValueContext)(implicit sync: Sync[F]): F[Lease] = {
+  /**
+   * read the secret from a path
+   *
+   * @param context key value context with key and vault config
+   * @param sync context type
+   * @return non-renewable vault lease
+   */
+  def read(context: KeyValueContext)(implicit sync: Sync[F]): F[Lease] = {
     val response = sttp
       .get(uri"${context.vaultConfig.apiUrl}/secret/${context.key}")
       .header("X-Vault-Token", context.vaultConfig.token)

@@ -13,11 +13,11 @@ import com.drobisch.tresor.vault._
 
 val vaultConfig = VaultConfig(apiUrl = "http://vault-host:8200/v1", token = "vault-token")
 
-Tresor(provider = KV[cats.effect.IO]).secret(KeyValueContext(key = "treasure", vaultConfig)) // IO[vault.Lease]
+Tresor(provider = KV[cats.effect.IO]).read(KeyValueContext(key = "treasure", vaultConfig)) // IO[vault.Lease]
 ```
 
 # Features
-
+ - Provider for AES-256 encryption
  - Providers for secrets from Hashicorp Vault engines (currently KV, AWS)
  - Integration with [cats-effect](https://github.com/typelevel/cats-effect)
  - Supports Scala 2.11, 2.12

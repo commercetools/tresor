@@ -5,7 +5,7 @@ import com.drobisch.tresor.{ Tresor, WireMockSupport, vault }
 import org.scalatest.{ FlatSpec, Matchers }
 
 class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
-  "AWS provider" should "read token from vault AWS engine" in {
+  "AWS provider" should "create credentials from vault AWS engine" in {
     import com.github.tomakehurst.wiremock.client.WireMock._
 
     val result: Lease = withWireMock(server => IO.delay {
@@ -21,7 +21,7 @@ class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
     }.flatMap { _ =>
       val vaultConfig = VaultConfig(apiUrl = s"http://localhost:${server.port()}/v1", token = "vault-token")
 
-      Tresor(provider = vault.AWS[IO]).secret(AwsContext(name = "some-role", vaultConfig = vaultConfig))
+      Tresor(provider = vault.AWS[IO]).createCredentials(AwsContext(name = "some-role", vaultConfig = vaultConfig))
     }).unsafeRunSync()
 
     val expectedLease = Lease(

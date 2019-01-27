@@ -1,8 +1,21 @@
 package com.drobisch.tresor
 
+/**
+ * basic types to implement secrets coming from https://www.vaultproject.io
+ */
 package object vault {
   final case class VaultConfig(apiUrl: String, token: String)
 
+  /**
+   * value type for a vault lease
+   *
+   * see https://www.vaultproject.io/docs/concepts/lease.html
+   *
+   * @param leaseId lease id
+   * @param data secret data values associated to the lease
+   * @param renewable true if the lease validation period can be extends
+   * @param leaseDuration duration of the lease starting with creation
+   */
   final case class Lease(
     leaseId: Option[String],
     data: Map[String, Option[String]],
