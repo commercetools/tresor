@@ -1,7 +1,7 @@
 package com.drobisch.tresor.vault
 
 import cats.effect.IO
-import com.drobisch.tresor.{ WireMockSupport, vault }
+import com.drobisch.tresor.WireMockSupport
 import com.github.tomakehurst.wiremock.client.WireMock.{ aResponse, equalTo, get, urlEqualTo }
 import org.scalatest.{ FlatSpec, Matchers }
 
