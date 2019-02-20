@@ -19,8 +19,10 @@ final case class EncryptedSecret(encrypted: Array[Byte], cipher: String, initVec
  *
  * @tparam F the context to do the encryption
  */
-class AES[F[_]] extends Provider[AES[F], F, AESContext, EncryptedSecret] {
-  def encrypt(aes: AESContext)(implicit sync: Sync[F]): F[EncryptedSecret] = sync.delay {
+class AES[F[_]](implicit sync: Sync[F]) extends Provider[F, AESContext, EncryptedSecret] {
+  override def secret(context: AESContext): F[EncryptedSecret] = encrypt(context)
+
+  def encrypt(aes: AESContext): F[EncryptedSecret] = sync.delay {
     val secretKey = createSecretKey(aes.password, aes.salt)
 
     val cipher = Cipher.getInstance(aes.cipher)
@@ -44,9 +46,8 @@ class AES[F[_]] extends Provider[AES[F], F, AESContext, EncryptedSecret] {
     val secretKey = factory.generateSecret(spec)
     new SecretKeySpec(secretKey.getEncoded, "AES")
   }
-
 }
 
 object AES {
-  def apply[F[_]] = new AES[F]
+  def apply[F[_]](implicit sync: Sync[F]) = new AES[F]
 }

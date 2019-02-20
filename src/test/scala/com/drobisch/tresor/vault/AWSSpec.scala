@@ -1,7 +1,7 @@
 package com.drobisch.tresor.vault
 
 import cats.effect.IO
-import com.drobisch.tresor.{ Tresor, WireMockSupport, vault }
+import com.drobisch.tresor.{ WireMockSupport, vault }
 import org.scalatest.{ FlatSpec, Matchers }
 
 class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
@@ -21,7 +21,7 @@ class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
     }.flatMap { _ =>
       val vaultConfig = VaultConfig(apiUrl = s"http://localhost:${server.port()}/v1", token = "vault-token")
 
-      Tresor(provider = vault.AWS[IO]).createCredentials(AwsContext(name = "some-role", vaultConfig = vaultConfig))
+      vault.AWS[IO].createCredentials(AwsContext(name = "some-role", vaultConfig = vaultConfig))
     }).unsafeRunSync()
 
     val expectedLease = Lease(

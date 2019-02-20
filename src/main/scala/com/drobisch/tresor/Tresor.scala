@@ -2,8 +2,6 @@ package com.drobisch.tresor
 
 import scala.language.higherKinds
 
-import cats.effect.Sync
-
 /**
  * Type class for secrets that are potentially only valid for a limited time
  * and which might be renewable
@@ -18,25 +16,14 @@ trait Secret[T] {
 }
 
 /**
- * Marker interface for secret providers.
- * Operations (creating secrets, renewing etc.) are
+ * Interface for secret providers.
+ * Other operations (creating secrets, renewing etc.) are
  * considered details of the provider.
- *
  *
  * @tparam C context type of the secret
  * @tparam P provider context type (the input for the provider)
  * @tparam T provider result type (the output of the provider)
  */
-trait Provider[S <: Provider[S, C, P, T], C[_], P, T]
-
-object Tresor {
-  /**
-   * @param provider to use
-   * @tparam S self type of the provider
-   * @tparam C context type
-   * @tparam P provider context type (the input for the provider)
-   * @tparam T provider result type (the output of the provider)
-   * @return the provider type with all types inferred
-   */
-  def apply[C[_]: Sync, P, T: Secret, S <: Provider[S, C, P, T]](provider: Provider[S, C, P, T]): S = provider.asInstanceOf[S]
+trait Provider[C[_], P, T] {
+  def secret(context: P): C[T]
 }
