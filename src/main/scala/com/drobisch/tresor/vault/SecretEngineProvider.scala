@@ -1,6 +1,12 @@
 package com.drobisch.tresor.vault
 
-import cats.effect.Sync
+import java.util.concurrent.TimeUnit
+
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.syntax.apply._
+import cats.effect.{ Clock, Sync }
+import cats.effect.concurrent.Ref
 import com.drobisch.tresor.Provider
 import com.softwaremill.sttp.{ Response, sttp }
 import io.circe.Json
@@ -42,6 +48,23 @@ trait SecretEngineProvider[Effect[_], ProviderContext] extends Provider[Effect, 
       parseLease(response)
     }
   }.getOrElse(sync.raiseError(new IllegalArgumentException("no lease id defined")))
+
+  def autoRefresh(lease: Effect[Lease])(implicit sync: Sync[Effect], clock: Clock[Effect]): Effect[Lease] = {
+    val currentLeaseRef = Ref.unsafe[Effect, (Long, Lease)]((Long.MinValue, Lease(None, Map.empty, renewable = true, None)))
+
+    for {
+      now <- clock.realTime(TimeUnit.SECONDS)
+      ref <- currentLeaseRef.get
+      valid <- {
+        val (issueTime, currentLease) = ref
+        val expiryTime = issueTime + currentLease.leaseDuration.getOrElse(0L)
+
+        if (currentLease.renewable && now >= expiryTime) {
+          lease.flatMap(newLease => currentLeaseRef.set((now, newLease)) *> sync.delay(newLease))
+        } else sync.pure(currentLease)
+      }
+    } yield valid
+  }
 
   protected def parseLease(response: Response[String])(implicit sync: Sync[Effect]): Effect[Lease] = {
     sync.flatMap(sync.fromEither(response.body.left.map(new RuntimeException(_)))) { body =>

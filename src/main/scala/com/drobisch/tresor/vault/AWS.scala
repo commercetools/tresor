@@ -15,7 +15,7 @@ final case class AwsContext(
  *
  * https://www.vaultproject.io/api/secret/aws/index.html
  *
- * @tparam F context type to use
+ * @tparam F effect type to use
  */
 class AWS[F[_]](implicit sync: Sync[F]) extends SecretEngineProvider[F, AwsContext] {
 

@@ -1,10 +1,12 @@
 package com.drobisch.tresor.vault
 
 import cats.effect.IO
-import com.drobisch.tresor.{ WireMockSupport, vault }
+import com.drobisch.tresor.{ StepClock, WireMockSupport }
 import org.scalatest.{ FlatSpec, Matchers }
 
 class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
+  val aws = AWS[IO]
+
   "AWS provider" should "create credentials from vault AWS engine" in {
     import com.github.tomakehurst.wiremock.client.WireMock._
 
@@ -21,7 +23,7 @@ class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
     }.flatMap { _ =>
       val vaultConfig = VaultConfig(apiUrl = s"http://localhost:${server.port()}/v1", token = "vault-token")
 
-      vault.AWS[IO].createCredentials(AwsContext(name = "some-role", vaultConfig = vaultConfig))
+      aws.createCredentials(AwsContext(name = "some-role", vaultConfig = vaultConfig))
     }).unsafeRunSync()
 
     val expectedLease = Lease(
@@ -51,7 +53,7 @@ class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
       val vaultConfig = VaultConfig(apiUrl = s"http://localhost:${server.port()}/v1", token = "vault-token")
       val existingLease = Lease(leaseId = Some(""), renewable = true, data = Map.empty, leaseDuration = Some(60))
 
-      AWS[IO].renew(existingLease, increment = 60, vaultConfig)
+      aws.renew(existingLease, increment = 60, vaultConfig)
     }).unsafeRunSync()
 
     val expectedLease = Lease(
@@ -63,4 +65,25 @@ class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
     result should be(expectedLease)
   }
 
+  it should "auto refresh lease" in {
+    implicit val clock: StepClock = StepClock(1)
+
+    val nextLease = IO(Lease(
+      leaseId = Some(clock.timeRef.get.unsafeRunSync().toString),
+      data = Map.empty,
+      renewable = true,
+      leaseDuration = Some(60)))
+
+    val leaseWithRefresh = aws.autoRefresh(nextLease)
+
+    leaseWithRefresh.unsafeRunSync() should be(Lease(Some("2"), Map(), renewable = true, Some(60)))
+
+    clock.timeRef.set(60).unsafeRunSync()
+
+    leaseWithRefresh.unsafeRunSync() should be(Lease(Some("2"), Map(), renewable = true, Some(60)))
+
+    clock.timeRef.set(61).unsafeRunSync()
+
+    leaseWithRefresh.unsafeRunSync() should be(Lease(Some("62"), Map(), renewable = true, Some(60)))
+  }
 }
