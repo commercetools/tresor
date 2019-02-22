@@ -2,6 +2,7 @@
 
 [![travis](https://travis-ci.org/adrobisch/tresor.svg?branch=master)](https://travis-ci.org/adrobisch/tresor)
 [![latest release](https://img.shields.io/maven-central/v/com.drobisch/tresor_2.12.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:com.drobisch%20AND%20a:tresor*)
+[![codecov](https://codecov.io/gh/adrobisch/tresor/branch/master/graph/badge.svg)](https://codecov.io/gh/adrobisch/tresor)
 
 A Scala library to access secrets (credentials etc.) from different sources.
 
