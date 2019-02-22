@@ -21,7 +21,7 @@ private[vault] final case class LeaseDTO(
   lease_duration: Option[Long],
   data: Option[Map[String, Option[String]]])
 
-trait SecretEngineProvider[Effect[_], ProviderContext] extends Provider[Effect, ProviderContext, Lease] with HttpSupport {
+abstract class SecretEngineProvider[Effect[_], ProviderContext](implicit sync: Sync[Effect], clock: Clock[Effect]) extends Provider[Effect, ProviderContext, Lease] with HttpSupport {
   protected val log = LoggerFactory.getLogger(getClass)
 
   /**
@@ -36,7 +36,7 @@ trait SecretEngineProvider[Effect[_], ProviderContext] extends Provider[Effect, 
    * @param sync context type
    * @return extended lease
    */
-  def renew(lease: Lease, increment: Long, vaultConfig: VaultConfig)(implicit sync: Sync[Effect]): Effect[Lease] = lease.leaseId.map { leaseId =>
+  def renew(lease: Lease, increment: Long, vaultConfig: VaultConfig): Effect[Lease] = lease.leaseId.map { leaseId =>
     sync.flatMap(sync.delay {
       sttp
         .post(uri"${vaultConfig.apiUrl}/sys/leases/renew")
@@ -49,38 +49,40 @@ trait SecretEngineProvider[Effect[_], ProviderContext] extends Provider[Effect, 
     }
   }.getOrElse(sync.raiseError(new IllegalArgumentException("no lease id defined")))
 
-  def autoRefresh(lease: Effect[Lease])(implicit sync: Sync[Effect], clock: Clock[Effect]): Effect[Lease] = {
-    val currentLeaseRef = Ref.unsafe[Effect, (Long, Lease)]((Long.MinValue, Lease(None, Map.empty, renewable = true, None)))
-
+  def autoRefresh(
+    lease: Ref[Effect, Lease],
+    increment: Long,
+    vaultConfig: VaultConfig): Effect[Lease] = {
     for {
       now <- clock.realTime(TimeUnit.SECONDS)
-      ref <- currentLeaseRef.get
+      currentLease <- lease.get
       valid <- {
-        val (issueTime, currentLease) = ref
-        val expiryTime = issueTime + currentLease.leaseDuration.getOrElse(0L)
+        val expiryTime = currentLease.issueTime + currentLease.leaseDuration.getOrElse(0L)
 
         if (currentLease.renewable && now >= expiryTime) {
-          lease.flatMap(newLease => currentLeaseRef.set((now, newLease)) *> sync.delay(newLease))
+          renew(currentLease, increment, vaultConfig).flatMap(newLease => lease.set(newLease) *> sync.delay(newLease))
         } else sync.pure(currentLease)
       }
     } yield valid
   }
 
-  protected def parseLease(response: Response[String])(implicit sync: Sync[Effect]): Effect[Lease] = {
-    sync.flatMap(sync.fromEither(response.body.left.map(new RuntimeException(_)))) { body =>
-      sync.delay {
-        val lease = fromDto(io.circe.parser.decode[LeaseDTO](body).right.get)
-        log.debug("returning lease: {}", lease)
-        lease
-      }
+  protected def parseLease(response: Response[String]): Effect[Lease] = {
+    for {
+      now <- clock.realTime(TimeUnit.SECONDS)
+      body <- sync.fromEither(response.body.left.map(new RuntimeException(_)))
+    } yield {
+      val lease = fromDto(io.circe.parser.decode[LeaseDTO](body).right.get, now)
+      log.debug("returning lease: {}", lease)
+      lease
     }
   }
 
-  protected def fromDto(dto: LeaseDTO): Lease = {
+  protected def fromDto(dto: LeaseDTO, now: Long): Lease = {
     Lease(
       leaseId = dto.lease_id,
       data = dto.data.getOrElse(Map.empty),
       renewable = dto.renewable,
-      leaseDuration = dto.lease_duration)
+      leaseDuration = dto.lease_duration,
+      issueTime = now)
   }
 }

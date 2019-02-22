@@ -1,7 +1,7 @@
 package com.drobisch.tresor.vault
 
 import cats.effect.IO
-import com.drobisch.tresor.WireMockSupport
+import com.drobisch.tresor.{ StepClock, WireMockSupport }
 import com.github.tomakehurst.wiremock.client.WireMock.{ aResponse, equalTo, get, urlEqualTo }
 import org.scalatest.{ FlatSpec, Matchers }
 
@@ -25,6 +25,7 @@ class DatabaseSpec extends FlatSpec with Matchers with WireMockSupport {
     }.flatMap { _ =>
       val vaultConfig = VaultConfig(apiUrl = s"http://localhost:${server.port()}/v1", token = "vault-token")
       val dbContext = DatabaseContext("role", vaultConfig)
+      implicit val clock = StepClock(1)
 
       Database[IO].secret(dbContext)
     }).unsafeRunSync()
@@ -33,7 +34,7 @@ class DatabaseSpec extends FlatSpec with Matchers with WireMockSupport {
       leaseId = Some("database/creds/role/1"),
       data = Map("username" -> Some("theuser"), "password" -> Some("thepw")),
       renewable = true,
-      leaseDuration = Some(3600))
+      leaseDuration = Some(3600), 1)
 
     result should be(expectedLease)
   }

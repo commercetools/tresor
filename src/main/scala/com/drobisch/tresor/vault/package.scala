@@ -20,7 +20,8 @@ package object vault {
     leaseId: Option[String],
     data: Map[String, Option[String]],
     renewable: Boolean,
-    leaseDuration: Option[Long])
+    leaseDuration: Option[Long],
+    issueTime: Long)
 
   implicit object VaultSecretLease extends Secret[Lease] {
     override def data(secret: Lease): Option[Map[String, Option[String]]] = Some(secret.data)

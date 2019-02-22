@@ -1,6 +1,6 @@
 package com.drobisch.tresor.vault
 
-import cats.effect.Sync
+import cats.effect.{ Clock, Sync }
 import com.softwaremill.sttp._
 
 final case class DatabaseContext(role: String, vaultConfig: VaultConfig)
@@ -12,7 +12,7 @@ final case class DatabaseContext(role: String, vaultConfig: VaultConfig)
  *
  * @tparam F context type to use
  */
-class Database[F[_]](implicit sync: Sync[F]) extends SecretEngineProvider[F, DatabaseContext] {
+class Database[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEngineProvider[F, DatabaseContext] {
   /**
    * read the credentials for a DB role
    *
@@ -32,5 +32,5 @@ class Database[F[_]](implicit sync: Sync[F]) extends SecretEngineProvider[F, Dat
 }
 
 object Database {
-  def apply[F[_]](implicit sync: Sync[F]) = new Database[F]
+  def apply[F[_]](implicit sync: Sync[F], clock: Clock[F]) = new Database[F]
 }

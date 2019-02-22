@@ -1,7 +1,7 @@
 package com.drobisch.tresor.vault
 
 import cats.effect.IO
-import com.drobisch.tresor.{ WireMockSupport, vault }
+import com.drobisch.tresor.{ StepClock, WireMockSupport, vault }
 import org.scalatest.{ FlatSpec, Matchers }
 import org.slf4j.{ Logger, LoggerFactory }
 
@@ -23,10 +23,11 @@ class KVSpec extends FlatSpec with Matchers with WireMockSupport {
       server.stubFor(vaultSecretRequest)
     }.flatMap { _ =>
       val vaultConfig = VaultConfig(apiUrl = s"http://localhost:${server.port()}/v1", token = "vault-token")
+      implicit val clock = StepClock(1)
 
       vault.KV[IO].secret(KeyValueContext(key = "treasure", vaultConfig))
     }).unsafeRunSync()
 
-    result should be(Lease(leaseId = Some(""), data = Map("key" -> Some("value")), renewable = false, leaseDuration = Some(43200)))
+    result should be(Lease(leaseId = Some(""), data = Map("key" -> Some("value")), renewable = false, leaseDuration = Some(43200), 1))
   }
 }

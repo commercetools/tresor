@@ -1,6 +1,6 @@
 package com.drobisch.tresor.vault
 
-import cats.effect.Sync
+import cats.effect.{ Clock, Sync }
 import com.softwaremill.sttp._
 
 final case class AwsContext(
@@ -17,7 +17,7 @@ final case class AwsContext(
  *
  * @tparam F effect type to use
  */
-class AWS[F[_]](implicit sync: Sync[F]) extends SecretEngineProvider[F, AwsContext] {
+class AWS[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEngineProvider[F, AwsContext] {
 
   /**
    * create a aws engine credential
@@ -47,5 +47,5 @@ class AWS[F[_]](implicit sync: Sync[F]) extends SecretEngineProvider[F, AwsConte
 }
 
 object AWS {
-  def apply[F[_]](implicit sync: Sync[F]) = new AWS[F]
+  def apply[F[_]](implicit sync: Sync[F], clock: Clock[F]) = new AWS[F]
 }

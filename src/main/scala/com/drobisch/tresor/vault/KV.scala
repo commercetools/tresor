@@ -1,7 +1,7 @@
 package com.drobisch.tresor.vault
 
 import com.softwaremill.sttp._
-import cats.effect.Sync
+import cats.effect.{ Clock, Sync }
 
 final case class KeyValueContext(key: String, vaultConfig: VaultConfig)
 
@@ -10,9 +10,9 @@ final case class KeyValueContext(key: String, vaultConfig: VaultConfig)
  *
  * https://www.vaultproject.io/api/secret/kv/kv-v1.html
  *
- * @tparam F context type to use
+ * @tparam F effect type to use
  */
-class KV[F[_]](implicit sync: Sync[F]) extends SecretEngineProvider[F, KeyValueContext] {
+class KV[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEngineProvider[F, KeyValueContext] {
   /**
    * read the secret from a path
    *
@@ -32,5 +32,5 @@ class KV[F[_]](implicit sync: Sync[F]) extends SecretEngineProvider[F, KeyValueC
 }
 
 object KV {
-  def apply[F[_]](implicit sync: Sync[F]) = new KV[F]
+  def apply[F[_]](implicit sync: Sync[F], clock: Clock[F]) = new KV[F]
 }
