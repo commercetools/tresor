@@ -13,6 +13,7 @@ trait Secret[T] {
   def data(secret: T): Option[Map[String, Option[String]]]
   def renewable(secret: T): Boolean
   def validDuration(secret: T): Option[Long]
+  def creationTime(secret: T): Option[Long]
 }
 
 /**
@@ -25,5 +26,5 @@ trait Secret[T] {
  * @tparam T provider result type (the output of the provider)
  */
 trait Provider[C[_], P, T] {
-  def secret(context: P): C[T]
+  def secret(context: P)(implicit secret: Secret[T]): C[T]
 }

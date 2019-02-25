@@ -7,7 +7,7 @@ class TresorSpec extends FlatSpec with Matchers with WireMockSupport {
   case class TestContext(data: Map[String, Option[String]])
 
   class TestProvider[F[_]](implicit sync: Sync[F]) extends Provider[F, TestContext, DefaultSecret] {
-    def secret(providerContext: TestContext): F[DefaultSecret] =
+    def secret(providerContext: TestContext)(implicit secret: Secret[DefaultSecret]): F[DefaultSecret] =
       sync.pure(DefaultSecret(providerContext.data))
   }
 

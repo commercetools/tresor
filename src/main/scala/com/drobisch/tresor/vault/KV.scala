@@ -2,6 +2,7 @@ package com.drobisch.tresor.vault
 
 import com.softwaremill.sttp._
 import cats.effect.{ Clock, Sync }
+import com.drobisch.tresor.Secret
 
 final case class KeyValueContext(key: String)
 
@@ -19,7 +20,7 @@ class KV[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEngineProv
    * @param context key value context with key and vault config
    * @return non-renewable vault lease
    */
-  def secret(context: (KeyValueContext, VaultConfig)): F[Lease] = {
+  def secret(context: (KeyValueContext, VaultConfig))(implicit secret: Secret[Lease]): F[Lease] = {
     val (kv, vaultConfig) = context
 
     val response = sttp

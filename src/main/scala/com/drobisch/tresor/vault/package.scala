@@ -28,5 +28,6 @@ package object vault {
     override def id(secret: Lease): Option[String] = secret.leaseId
     override def renewable(secret: Lease): Boolean = secret.renewable
     override def validDuration(secret: Lease): Option[Long] = secret.leaseDuration
+    override def creationTime(secret: Lease): Option[Long] = Some(secret.issueTime)
   }
 }

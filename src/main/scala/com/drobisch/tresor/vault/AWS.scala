@@ -2,6 +2,7 @@ package com.drobisch.tresor.vault
 
 import cats.data.ReaderT
 import cats.effect.{ Clock, Sync }
+import com.drobisch.tresor.Secret
 import com.softwaremill.sttp._
 
 final case class AwsContext(
@@ -43,7 +44,7 @@ class AWS[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEnginePro
     parseLease(response)
   })
 
-  override def secret(secretContext: (AwsContext, VaultConfig)): F[Lease] = secretContext match {
+  override def secret(secretContext: (AwsContext, VaultConfig))(implicit secret: Secret[Lease]): F[Lease] = secretContext match {
     case (awsContext, vaultConfig) => createCredentials(awsContext)(vaultConfig)
   }
 }

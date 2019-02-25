@@ -14,5 +14,6 @@ package object tresor {
     override def data(secret: DefaultSecret): Option[Map[String, Option[String]]] = Some(secret.data)
     override def renewable(secret: DefaultSecret): Boolean = false
     override def validDuration(secret: DefaultSecret): Option[Long] = None
+    override def creationTime(secret: DefaultSecret): Option[Long] = None
   }
 }
