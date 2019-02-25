@@ -24,10 +24,10 @@ class DatabaseSpec extends FlatSpec with Matchers with WireMockSupport {
       server.stubFor(vaultCredentialsRequest)
     }.flatMap { _ =>
       val vaultConfig = VaultConfig(apiUrl = s"http://localhost:${server.port()}/v1", token = "vault-token")
-      val dbContext = DatabaseContext("role", vaultConfig)
+      val dbContext = DatabaseContext("role")
       implicit val clock = StepClock(1)
 
-      Database[IO].secret(dbContext)
+      Database[IO].secret(dbContext, vaultConfig)
     }).unsafeRunSync()
 
     val expectedLease = Lease(

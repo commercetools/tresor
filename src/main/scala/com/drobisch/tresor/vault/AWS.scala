@@ -1,5 +1,6 @@
 package com.drobisch.tresor.vault
 
+import cats.data.ReaderT
 import cats.effect.{ Clock, Sync }
 import com.softwaremill.sttp._
 
@@ -7,8 +8,7 @@ final case class AwsContext(
   name: String,
   roleArn: Option[String] = None,
   ttlString: Option[String] = None,
-  useSts: Boolean = false,
-  vaultConfig: VaultConfig)
+  useSts: Boolean = false)
 
 /**
  * implementation of the vault AWS engine API
@@ -17,7 +17,7 @@ final case class AwsContext(
  *
  * @tparam F effect type to use
  */
-class AWS[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEngineProvider[F, AwsContext] {
+class AWS[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEngineProvider[F, (AwsContext, VaultConfig)] {
 
   /**
    * create a aws engine credential
@@ -27,23 +27,25 @@ class AWS[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEnginePro
    * @param awsContext context
    * @return a new lease for aws resources
    */
-  def createCredentials(awsContext: AwsContext): F[Lease] = sync.flatMap(sync.delay {
+  def createCredentials(awsContext: AwsContext): ReaderT[F, VaultConfig, Lease] = ReaderT(vaultConfig => sync.flatMap(sync.delay {
     val roleArnPart = awsContext.roleArn.map(s"&role_arn=" + _).getOrElse("")
     val ttlPart = "&ttl=" + awsContext.ttlString.getOrElse("3600s")
     val infixPart = if (awsContext.useSts) "sts" else "creds"
 
-    val requestUri = s"${awsContext.vaultConfig.apiUrl}/aws/$infixPart/${awsContext.name}?$roleArnPart$ttlPart"
+    val requestUri = s"${vaultConfig.apiUrl}/aws/$infixPart/${awsContext.name}?$roleArnPart$ttlPart"
 
     sttp
       .get(uri"$requestUri")
-      .header("X-Vault-Token", awsContext.vaultConfig.token)
+      .header("X-Vault-Token", vaultConfig.token)
       .send()
   }) { response =>
     log.debug("response from vault: {}", response)
     parseLease(response)
-  }
+  })
 
-  override def secret(context: AwsContext): F[Lease] = createCredentials(context)
+  override def secret(secretContext: (AwsContext, VaultConfig)): F[Lease] = secretContext match {
+    case (awsContext, vaultConfig) => createCredentials(awsContext)(vaultConfig)
+  }
 }
 
 object AWS {

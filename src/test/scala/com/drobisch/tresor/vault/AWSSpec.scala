@@ -8,7 +8,7 @@ import cats.effect.IO
 import cats.effect.concurrent.Ref
 import com.drobisch.tresor.{ StepClock, WireMockSupport }
 import com.softwaremill.sttp.testing.SttpBackendStub
-import com.softwaremill.sttp.{ Id, Response, SttpBackend }
+import com.softwaremill.sttp._
 import org.scalatest.{ FlatSpec, Matchers }
 
 class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
@@ -30,7 +30,7 @@ class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
       val vaultConfig = VaultConfig(apiUrl = s"http://localhost:${server.port()}/v1", token = "vault-token")
       implicit val clock = StepClock(1)
 
-      AWS[IO].createCredentials(AwsContext(name = "some-role", vaultConfig = vaultConfig))
+      AWS[IO].secret(AwsContext(name = "some-role"), vaultConfig)
     }).unsafeRunSync()
 
     val expectedLease = Lease(
@@ -40,6 +40,29 @@ class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
       leaseDuration = Some(43200), 1)
 
     result should be(expectedLease)
+  }
+
+  it should "sts if requested" in {
+    implicit val clock: StepClock = StepClock(1)
+
+    val http = SttpBackendStub.synchronous
+      .whenRequestMatchesPartial {
+        case credentials if credentials.uri.path.mkString("/") == "v1/aws/sts/some-role" =>
+          Response.ok[String](LeaseDTO(Some("sts-lease"), true, Some(60), None).asJson.noSpaces)
+      }
+
+    val mockedAws = new AWS[IO]() {
+      override protected implicit val backend: SttpBackend[Id, Nothing] = http
+    }
+
+    val vaultConfig = VaultConfig(apiUrl = s"http://localhost/v1", token = "vault-token")
+
+    mockedAws.secret(AwsContext(name = "some-role", useSts = true), vaultConfig).unsafeRunSync() should be(
+      Lease(
+        leaseId = Some("sts-lease"),
+        data = Map(),
+        renewable = true,
+        leaseDuration = Some(60), 1))
   }
 
   it should "renew lease" in {
@@ -61,7 +84,7 @@ class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
       val existingLease = Lease(leaseId = Some(""), renewable = true, data = Map.empty, leaseDuration = Some(60), issueTime = 1)
       implicit val clock = StepClock(1)
 
-      AWS[IO].renew(existingLease, increment = 60, vaultConfig)
+      AWS[IO].renew(existingLease, increment = Some(60))(vaultConfig)
     }).unsafeRunSync()
 
     val expectedLease = Lease(
@@ -84,18 +107,25 @@ class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
       leaseDuration = Some(60),
       issueTime = 0)
 
-    val http = SttpBackendStub.synchronous
-      .whenRequestMatches(_ => true)
-      .thenRespond(Response.ok[String](LeaseDTO(Some("new" + clock.realTime(TimeUnit.SECONDS).unsafeRunSync()), true, Some(60), None).asJson.noSpaces))
+    def leaseDTO(prefix: String) =
+      LeaseDTO(Some(prefix + clock.realTime(TimeUnit.SECONDS).unsafeRunSync()), true, Some(60), None).asJson.noSpaces
+
+    val http = SttpBackendStub
+      .synchronous
+      .whenRequestMatchesPartial {
+        case req if req.uri.path.mkString("/") == "v1/aws/creds/some-role" => Response.ok[String](leaseDTO("new"))
+        case req if req.uri.path.mkString("/") == "v1/sys/leases/renew" => Response.ok[String](leaseDTO("renew"))
+      }
 
     val mockedAws = new AWS[IO]() {
       override protected implicit val backend: SttpBackend[Id, Nothing] = http
     }
 
-    val leaseWithRefresh = mockedAws.autoRefresh(
-      Ref.unsafe[IO, Lease](aLease),
-      increment = 10,
-      vaultConfig = VaultConfig(apiUrl = s"http://localhost/v1", token = "vault-token"))
+    val vaultConfig = VaultConfig(apiUrl = s"http://localhost/v1", token = "vault-token")
+    val awsContext = AwsContext(name = "some-role")
+    val currentLease = Ref.unsafe[IO, Option[Lease]](Some(aLease))
+
+    val leaseWithRefresh = mockedAws.autoRefresh(currentLease)(mockedAws.createCredentials(awsContext))(vaultConfig)
 
     leaseWithRefresh.unsafeRunSync() should be(Lease(Some("init"), Map(), renewable = true, Some(60), 0))
 
@@ -107,8 +137,12 @@ class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
 
     leaseWithRefresh.unsafeRunSync() should be(Lease(Some("new61"), Map(), renewable = true, Some(60), 62))
 
-    clock.timeRef.set(122).unsafeRunSync()
+    clock.timeRef.set(92).unsafeRunSync() // halflife
 
-    leaseWithRefresh.unsafeRunSync() should be(Lease(Some("new123"), Map(), renewable = true, Some(60), 124))
+    leaseWithRefresh.unsafeRunSync() should be(Lease(Some("renew93"), Map(), renewable = true, Some(60), 94))
+
+    clock.timeRef.set(600).unsafeRunSync() // expired
+
+    leaseWithRefresh.unsafeRunSync() should be(Lease(Some("new601"), Map(), renewable = true, Some(60), 602))
   }
 }

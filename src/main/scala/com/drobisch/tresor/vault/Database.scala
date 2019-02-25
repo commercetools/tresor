@@ -3,7 +3,7 @@ package com.drobisch.tresor.vault
 import cats.effect.{ Clock, Sync }
 import com.softwaremill.sttp._
 
-final case class DatabaseContext(role: String, vaultConfig: VaultConfig)
+final case class DatabaseContext(role: String)
 
 /**
  * implementation of the vault Databases engine API
@@ -12,17 +12,19 @@ final case class DatabaseContext(role: String, vaultConfig: VaultConfig)
  *
  * @tparam F context type to use
  */
-class Database[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEngineProvider[F, DatabaseContext] {
+class Database[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEngineProvider[F, (DatabaseContext, VaultConfig)] {
   /**
    * read the credentials for a DB role
    *
    * @param context database context with a role
    * @return vault lease
    */
-  override def secret(context: DatabaseContext): F[Lease] = {
+  override def secret(context: (DatabaseContext, VaultConfig)): F[Lease] = {
+    val (db, vaultConfig) = context
+
     val response = sttp
-      .get(uri"${context.vaultConfig.apiUrl}/database/creds/${context.role}")
-      .header("X-Vault-Token", context.vaultConfig.token)
+      .get(uri"${vaultConfig.apiUrl}/database/creds/${db.role}")
+      .header("X-Vault-Token", vaultConfig.token)
       .send()
 
     log.debug("response from vault: {}", response)
