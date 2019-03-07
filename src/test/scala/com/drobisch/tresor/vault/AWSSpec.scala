@@ -81,7 +81,7 @@ class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
       server.stubFor(vaultRenewRequest)
     }.flatMap { _ =>
       val vaultConfig = VaultConfig(apiUrl = s"http://localhost:${server.port()}/v1", token = "vault-token")
-      val existingLease = Lease(leaseId = Some(""), renewable = true, data = Map.empty, leaseDuration = Some(60), issueTime = 1)
+      val existingLease = Lease(leaseId = Some(""), renewable = true, data = Map("foo" -> Some("bar")), leaseDuration = Some(60), issueTime = 1)
       implicit val clock = StepClock(1)
 
       AWS[IO].renew(existingLease, increment = Some(60))(vaultConfig)
@@ -89,7 +89,7 @@ class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
 
     val expectedLease = Lease(
       leaseId = Some("aws/creds/some-role/abcd-123456"),
-      data = Map.empty,
+      data = Map("foo" -> Some("bar")),
       renewable = true,
       leaseDuration = Some(60),
       issueTime = 1)

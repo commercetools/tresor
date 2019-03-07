@@ -2,11 +2,11 @@ package com.drobisch.tresor.vault
 
 import java.util.concurrent.TimeUnit
 
-import cats.data.{ ReaderT }
+import cats.data.ReaderT
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.apply._
-import cats.effect.{ Clock, IO, Sync }
+import cats.effect.{ Clock, Sync }
 import cats.effect.concurrent.Ref
 import com.drobisch.tresor.Provider
 import com.softwaremill.sttp.{ Response, sttp }
@@ -47,7 +47,7 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext](implicit sync: S
           .send()
       }) { response =>
         log.debug("response from vault: {}", response)
-        parseLease(response)
+        parseLease(response).map(renewed => renewed.copy(data = lease.data))
       }
     }
   }.getOrElse(ReaderT[Effect, VaultConfig, Lease](_ => sync.raiseError(new IllegalArgumentException("no lease id defined"))))
@@ -71,7 +71,8 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext](implicit sync: S
   def autoRefresh(
     leaseRef: Ref[Effect, Option[Lease]],
     increment: Option[Long] = None,
-    refreshRatio: Double = 0.5)(newLease: ReaderT[Effect, VaultConfig, Lease]): ReaderT[Effect, VaultConfig, Lease] = {
+    refreshRatio: Double = 0.5,
+    forceNew: Boolean = false)(newLease: ReaderT[Effect, VaultConfig, Lease]): ReaderT[Effect, VaultConfig, Lease] = {
     for {
       now <- ReaderT.liftF(clock.realTime(TimeUnit.SECONDS))
       currentLease <- ReaderT.liftF(leaseRef.get)
@@ -84,8 +85,10 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext](implicit sync: S
 
             if (!lease.renewable || now >= expiryTime) {
               newLease
-            } else if (now >= ratioTime) {
+            } else if (now >= ratioTime && !forceNew) {
               renew(lease, increment)
+            } else if (now >= ratioTime && forceNew) {
+              newLease
             } else ReaderT[Effect, VaultConfig, Lease](_ => sync.pure(lease))
 
           case None => newLease
@@ -101,7 +104,7 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext](implicit sync: S
       body <- sync.fromEither(response.body.left.map(new RuntimeException(_)))
     } yield {
       val lease = fromDto(io.circe.parser.decode[LeaseDTO](body).right.get, now)
-      log.debug("returning lease: {}", lease)
+      log.debug("parsed lease: {}", lease)
       lease
     }
   }
