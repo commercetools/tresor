@@ -157,7 +157,7 @@ adrobisch/tresor
 <ul style="display: none">
 <li class="md-nav__item md-version" id="project.version">
 <label class="md-nav__link" for="__version">
-<i class="md-icon" title="Version">label_outline</i> 0.1.10*
+<i class="md-icon" title="Version">label_outline</i> 0.1.9
 </label>
 </li>
 </ul>
@@ -187,7 +187,7 @@ adrobisch/tresor
 <h1><a href="#examples" name="examples" class="anchor"><span class="anchor-link"></span></a>Examples</h1>
 <h2><a href="#using-the-vault-key-value-engine" name="using-the-vault-key-value-engine" class="anchor"><span class="anchor-link"></span></a>Using the Vault Key Value Engine</h2>
 <p>The KV engine in vault lets you store arbitrary secrets in a JSON-object like manner. This will create non-refreshable (as in <em>always valid</em>) leases:</p>
-<pre class="prettyprint"><a class="icon go-to-source" href="https://github.com/adrobisch/tresor.git/tree/master/src/test/scala/examples/KVExample.scala#L5-L14" target="_blank" title="Go to snippet source"></a><code class="language-scala">import cats.effect.{IO, Timer}
+<pre class="prettyprint"><a class="icon go-to-source" href="https://github.com/adrobisch/tresor/tree/v0.1.9/src/test/scala/examples/KVExample.scala#L5-L14" target="_blank" title="Go to snippet source"></a><code class="language-scala">import cats.effect.{IO, Timer}
 import scala.concurrent.ExecutionContext
 import com.drobisch.tresor.vault._
 
@@ -199,7 +199,7 @@ val vaultConfig = VaultConfig(apiUrl = &quot;http://vault-host:8200/v1&quot;, to
 val kvSecret: IO[Lease] = KV[cats.effect.IO].secret(KeyValueContext(key = &quot;treasure&quot;), vaultConfig)</code></pre>
 <h2><a href="#using-the-aws-engine-with-auto-refresh" name="using-the-aws-engine-with-auto-refresh" class="anchor"><span class="anchor-link"></span></a>Using the AWS Engine with auto-refresh</h2>
 <p>The AWS engine create refreshable leases for which a reference can be used for storing. Usually you would create the reference in a <strong>safe</strong> way during application bootstrap, this has been omitted here: </p>
-<pre class="prettyprint"><a class="icon go-to-source" href="https://github.com/adrobisch/tresor.git/tree/master/src/test/scala/examples/AWSExample.scala#L5-L18" target="_blank" title="Go to snippet source"></a><code class="language-scala">import cats.effect.IO
+<pre class="prettyprint"><a class="icon go-to-source" href="https://github.com/adrobisch/tresor/tree/v0.1.9/src/test/scala/examples/AWSExample.scala#L5-L18" target="_blank" title="Go to snippet source"></a><code class="language-scala">import cats.effect.IO
 import cats.effect.concurrent.Ref
 import cats.effect.Timer
 
@@ -215,13 +215,13 @@ val initialLease: Ref[IO, Option[Lease]] = Ref.unsafe[IO, Option[Lease]](None)
 val leaseWithRefresh: IO[Lease] = AWS[IO].autoRefresh(initialLease)(AWS[IO].createCredentials(awsContext))(vaultConfig)</code></pre>
 </div>
 <div>
-<a href="https://github.com/adrobisch/tresor.git/tree/master/docs/examples.md" title="Edit this page" class="md-source-file md-edit">
+<a href="https://github.com/adrobisch/tresor/tree/v0.1.9/docs/examples.md" title="Edit this page" class="md-source-file md-edit">
 Edit this page
 </a>
 </div>
 <div class="print-only">
 <span class="md-source-file md-version">
-0.1.10*
+0.1.9
 </span>
 </div>
 </article>
