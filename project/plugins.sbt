@@ -1,7 +1,0 @@
-addSbtPlugin("org.scalariform" % "sbt-scalariform" % "1.8.1")
-addSbtPlugin("org.wartremover" % "sbt-wartremover" % "2.2.1")
-addSbtPlugin("com.github.gseitz" % "sbt-release" % "1.0.11")
-addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.2")
-addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.1.0")
-addSbtPlugin("org.xerial.sbt" % "sbt-sonatype" % "2.0")
-addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.5.1")
