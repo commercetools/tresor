@@ -2,7 +2,7 @@ package examples
 
 object KVExample extends App {
   // #kv-example
-  import cats.effect.{IO, Timer}
+  import cats.effect.{ IO, Timer }
   import scala.concurrent.ExecutionContext
   import com.drobisch.tresor.vault._
 
@@ -14,5 +14,4 @@ object KVExample extends App {
   val kvSecret: IO[Lease] = KV[cats.effect.IO].secret(KeyValueContext(key = "treasure"), vaultConfig)
   // #kv-example
 }
-
 
