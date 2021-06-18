@@ -1,33 +1,40 @@
 package com.drobisch.tresor
 
-/**
- * basic types to implement secrets coming from https://www.vaultproject.io
- */
+/** basic types to implement secrets coming from https://www.vaultproject.io
+  */
 package object vault {
   final case class VaultConfig(apiUrl: String, token: String)
 
-  /**
-   * value type for a vault lease
-   *
-   * see https://www.vaultproject.io/docs/concepts/lease.html
-   *
-   * @param leaseId lease id
-   * @param data secret data values associated to the lease
-   * @param renewable true if the lease validation period can be extends
-   * @param leaseDuration duration of the lease starting with creation
-   */
+  /** value type for a vault lease
+    *
+    * see https://www.vaultproject.io/docs/concepts/lease.html
+    *
+    * @param leaseId
+    *   lease id
+    * @param data
+    *   secret data values associated to the lease
+    * @param renewable
+    *   true if the lease validation period can be extends
+    * @param leaseDuration
+    *   duration of the lease starting with creation
+    */
   final case class Lease(
-    leaseId: Option[String],
-    data: Map[String, Option[String]],
-    renewable: Boolean,
-    leaseDuration: Option[Long],
-    issueTime: Long)
+      leaseId: Option[String],
+      data: Map[String, Option[String]],
+      renewable: Boolean,
+      leaseDuration: Option[Long],
+      issueTime: Long
+  )
 
   implicit object VaultSecretLease extends Secret[Lease] {
-    override def data(secret: Lease): Option[Map[String, Option[String]]] = Some(secret.data)
+    override def data(secret: Lease): Option[Map[String, Option[String]]] =
+      Some(secret.data)
     override def id(secret: Lease): Option[String] = secret.leaseId
     override def renewable(secret: Lease): Boolean = secret.renewable
-    override def validDuration(secret: Lease): Option[Long] = secret.leaseDuration
-    override def creationTime(secret: Lease): Option[Long] = Some(secret.issueTime)
+    override def validDuration(secret: Lease): Option[Long] =
+      secret.leaseDuration
+    override def creationTime(secret: Lease): Option[Long] = Some(
+      secret.issueTime
+    )
   }
 }

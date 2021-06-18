@@ -1,26 +1,31 @@
 package com.drobisch.tresor.vault
 
 import sttp.client3._
-import cats.effect.{ Clock, Sync }
+import cats.effect.{Clock, Sync}
 import com.drobisch.tresor.Secret
 
 final case class KeyValueContext(key: String)
 
-/**
- * implementation of the vault KV engine API
- *
- * https://www.vaultproject.io/api/secret/kv/kv-v1.html
- *
- * @tparam F effect type to use
- */
-class KV[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEngineProvider[F, (KeyValueContext, VaultConfig)] {
-  /**
-   * read the secret from a path
-   *
-   * @param context key value context with key and vault config
-   * @return non-renewable vault lease
-   */
-  def secret(context: (KeyValueContext, VaultConfig))(implicit secret: Secret[Lease]): F[Lease] = {
+/** implementation of the vault KV engine API
+  *
+  * https://www.vaultproject.io/api/secret/kv/kv-v1.html
+  *
+  * @tparam F
+  *   effect type to use
+  */
+class KV[F[_]](implicit sync: Sync[F], clock: Clock[F])
+    extends SecretEngineProvider[F, (KeyValueContext, VaultConfig)] {
+
+  /** read the secret from a path
+    *
+    * @param context
+    *   key value context with key and vault config
+    * @return
+    *   non-renewable vault lease
+    */
+  def secret(
+      context: (KeyValueContext, VaultConfig)
+  )(implicit secret: Secret[Lease]): F[Lease] = {
     val (kv, vaultConfig) = context
 
     val response = basicRequest

@@ -1,26 +1,34 @@
 package com.drobisch.tresor.crypto
 
 import cats.effect.Sync
-import com.drobisch.tresor.{ Provider, Secret }
-import javax.crypto.spec.{ IvParameterSpec, PBEKeySpec, SecretKeySpec }
-import javax.crypto.{ Cipher, SecretKeyFactory }
+import com.drobisch.tresor.{Provider, Secret}
+import javax.crypto.spec.{IvParameterSpec, PBEKeySpec, SecretKeySpec}
+import javax.crypto.{Cipher, SecretKeyFactory}
 
 final case class AESContext(
-  password: String,
-  salt: String,
-  input: Array[Byte],
-  cipher: String = "AES/CBC/PKCS5Padding")
+    password: String,
+    salt: String,
+    input: Array[Byte],
+    cipher: String = "AES/CBC/PKCS5Padding"
+)
 
-final case class EncryptedSecret(encrypted: Array[Byte], cipher: String, initVector: Array[Byte])
+final case class EncryptedSecret(
+    encrypted: Array[Byte],
+    cipher: String,
+    initVector: Array[Byte]
+)
 
-/**
- * Implements basic AES encryption using javax.crypto and follows
- * https://stackoverflow.com/questions/992019/java-256-bit-aes-password-based-encryption
- *
- * @tparam F the context to do the encryption
- */
-class AES[F[_]](implicit sync: Sync[F]) extends Provider[F, AESContext, EncryptedSecret] {
-  override def secret(context: AESContext)(implicit secret: Secret[EncryptedSecret]): F[EncryptedSecret] = encrypt(context)
+/** Implements basic AES encryption using javax.crypto and follows
+  * https://stackoverflow.com/questions/992019/java-256-bit-aes-password-based-encryption
+  *
+  * @tparam F
+  *   the context to do the encryption
+  */
+class AES[F[_]](implicit sync: Sync[F])
+    extends Provider[F, AESContext, EncryptedSecret] {
+  override def secret(context: AESContext)(implicit
+      secret: Secret[EncryptedSecret]
+  ): F[EncryptedSecret] = encrypt(context)
 
   def encrypt(aes: AESContext): F[EncryptedSecret] = sync.delay {
     val secretKey = createSecretKey(aes.password, aes.salt)
@@ -28,15 +36,24 @@ class AES[F[_]](implicit sync: Sync[F]) extends Provider[F, AESContext, Encrypte
     val cipher = Cipher.getInstance(aes.cipher)
     cipher.init(Cipher.ENCRYPT_MODE, secretKey)
     val params = cipher.getParameters
-    val iv: Array[Byte] = params.getParameterSpec(classOf[IvParameterSpec]).getIV
+    val iv: Array[Byte] =
+      params.getParameterSpec(classOf[IvParameterSpec]).getIV
     EncryptedSecret(cipher.doFinal(aes.input), aes.cipher, iv)
   }
 
-  def decrypt(password: String, salt: String, secret: EncryptedSecret): Array[Byte] = {
+  def decrypt(
+      password: String,
+      salt: String,
+      secret: EncryptedSecret
+  ): Array[Byte] = {
     val secretKey = createSecretKey(password, salt)
 
     val cipher = Cipher.getInstance(secret.cipher)
-    cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(secret.initVector))
+    cipher.init(
+      Cipher.DECRYPT_MODE,
+      secretKey,
+      new IvParameterSpec(secret.initVector)
+    )
     cipher.doFinal(secret.encrypted)
   }
 
@@ -52,7 +69,9 @@ object AES {
 
   implicit object AESSecret extends Secret[EncryptedSecret] {
     override def id(secret: EncryptedSecret): Option[String] = None
-    override def data(secret: EncryptedSecret): Option[Map[String, Option[String]]] = None
+    override def data(
+        secret: EncryptedSecret
+    ): Option[Map[String, Option[String]]] = None
     override def renewable(secret: EncryptedSecret): Boolean = false
     override def validDuration(secret: EncryptedSecret): Option[Long] = None
     override def creationTime(secret: EncryptedSecret): Option[Long] = None

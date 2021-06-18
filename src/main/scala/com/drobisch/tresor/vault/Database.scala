@@ -1,26 +1,31 @@
 package com.drobisch.tresor.vault
 
-import cats.effect.{ Clock, Sync }
+import cats.effect.{Clock, Sync}
 import com.drobisch.tresor.Secret
 import sttp.client3._
 
 final case class DatabaseContext(role: String)
 
-/**
- * implementation of the vault Databases engine API
- *
- * https://www.vaultproject.io/api/secret/databases
- *
- * @tparam F context type to use
- */
-class Database[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEngineProvider[F, (DatabaseContext, VaultConfig)] {
-  /**
-   * read the credentials for a DB role
-   *
-   * @param context database context with a role
-   * @return vault lease
-   */
-  override def secret(context: (DatabaseContext, VaultConfig))(implicit secret: Secret[Lease]): F[Lease] = {
+/** implementation of the vault Databases engine API
+  *
+  * https://www.vaultproject.io/api/secret/databases
+  *
+  * @tparam F
+  *   context type to use
+  */
+class Database[F[_]](implicit sync: Sync[F], clock: Clock[F])
+    extends SecretEngineProvider[F, (DatabaseContext, VaultConfig)] {
+
+  /** read the credentials for a DB role
+    *
+    * @param context
+    *   database context with a role
+    * @return
+    *   vault lease
+    */
+  override def secret(
+      context: (DatabaseContext, VaultConfig)
+  )(implicit secret: Secret[Lease]): F[Lease] = {
     val (db, vaultConfig) = context
 
     val response = basicRequest
