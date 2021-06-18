@@ -6,7 +6,6 @@
  - Provider for AES-256 encryption
  - Providers for secrets from Hashicorp Vault engines (currently KV, Database, AWS)
  - Integration with [cats-effect](https://github.com/typelevel/cats-effect)
- - Supports Scala 2.11, 2.12
  - [Apache 2.0 licensed](LICENSE)
 
 ## Goals
