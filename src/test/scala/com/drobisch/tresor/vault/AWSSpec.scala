@@ -1,17 +1,18 @@
 package com.drobisch.tresor.vault
 
 import java.util.concurrent.TimeUnit
-
 import io.circe.generic.auto._
 import io.circe.syntax._
 import cats.effect.IO
 import cats.effect.concurrent.Ref
-import com.drobisch.tresor.{ StepClock, WireMockSupport }
-import com.softwaremill.sttp.testing.SttpBackendStub
-import com.softwaremill.sttp._
-import org.scalatest.{ FlatSpec, Matchers }
+import com.drobisch.tresor.{StepClock, WireMockSupport}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import sttp.capabilities
+import sttp.client3._
+import sttp.client3.testing.SttpBackendStub
 
-class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
+class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
   "AWS provider" should "create credentials from vault AWS engine" in {
     import com.github.tomakehurst.wiremock.client.WireMock._
@@ -52,7 +53,7 @@ class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
       }
 
     val mockedAws = new AWS[IO]() {
-      override protected implicit val backend: SttpBackend[Id, Nothing] = http
+      override protected implicit lazy val backend = http
     }
 
     val vaultConfig = VaultConfig(apiUrl = s"http://localhost/v1", token = "vault-token")
@@ -118,7 +119,7 @@ class AWSSpec extends FlatSpec with Matchers with WireMockSupport {
       }
 
     val mockedAws = new AWS[IO]() {
-      override protected implicit val backend: SttpBackend[Id, Nothing] = http
+      override protected implicit lazy val backend: SttpBackendStub[Identity, capabilities.WebSockets] = http
     }
 
     val vaultConfig = VaultConfig(apiUrl = s"http://localhost/v1", token = "vault-token")

@@ -2,10 +2,11 @@ package com.drobisch.tresor.vault
 
 import cats.effect.IO
 import com.drobisch.tresor.{ StepClock, WireMockSupport, vault }
-import org.scalatest.{ FlatSpec, Matchers }
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.slf4j.{ Logger, LoggerFactory }
 
-class KVSpec extends FlatSpec with Matchers with WireMockSupport {
+class KVSpec extends AnyFlatSpec with Matchers with WireMockSupport {
   val log: Logger = LoggerFactory.getLogger(getClass)
 
   "KV provider" should "read token from vault KV engine" in {

@@ -1,16 +1,14 @@
-enablePlugins(ParadoxMaterialThemePlugin, ParadoxSitePlugin, GhpagesPlugin)
+enablePlugins(ParadoxSitePlugin, GhpagesPlugin, ParadoxMaterialThemePlugin)
 
-sourceDirectory in Paradox := baseDirectory.value / "docs"
-
-ParadoxMaterialThemePlugin.paradoxMaterialThemeSettings(Paradox)
+Paradox / sourceDirectory := baseDirectory.value / "docs"
 
 paradoxProperties += ("version" -> version.value)
 
-mappings in makeSite ++= Seq(
+makeSite / mappings ++= Seq(
   file("LICENSE") -> "LICENSE"
 )
 
-paradoxMaterialTheme in Paradox := {
+Paradox / paradoxMaterialTheme := {
   ParadoxMaterialTheme()
     .withColor("blue-grey", "blue-grey")
     .withCopyright("© tresor contributors")

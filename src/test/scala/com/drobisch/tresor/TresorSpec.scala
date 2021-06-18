@@ -1,9 +1,10 @@
 package com.drobisch.tresor
 
 import cats.effect._
-import org.scalatest.{ FlatSpec, Matchers }
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class TresorSpec extends FlatSpec with Matchers with WireMockSupport {
+class TresorSpec extends AnyFlatSpec with Matchers with WireMockSupport {
   case class TestContext(data: Map[String, Option[String]])
 
   class TestProvider[F[_]](implicit sync: Sync[F]) extends Provider[F, TestContext, DefaultSecret] {

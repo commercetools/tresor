@@ -1,6 +1,6 @@
 package com.drobisch.tresor.vault
 
-import com.softwaremill.sttp._
+import sttp.client3._
 import cats.effect.{ Clock, Sync }
 import com.drobisch.tresor.Secret
 
@@ -23,10 +23,10 @@ class KV[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEngineProv
   def secret(context: (KeyValueContext, VaultConfig))(implicit secret: Secret[Lease]): F[Lease] = {
     val (kv, vaultConfig) = context
 
-    val response = sttp
+    val response = basicRequest
       .get(uri"${vaultConfig.apiUrl}/secret/${kv.key}")
       .header("X-Vault-Token", vaultConfig.token)
-      .send()
+      .send(backend)
 
     log.debug("response from vault: {}", response)
 

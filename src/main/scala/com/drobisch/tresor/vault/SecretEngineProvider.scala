@@ -9,12 +9,10 @@ import cats.syntax.apply._
 import cats.effect.{ Clock, Sync }
 import cats.effect.concurrent.Ref
 import com.drobisch.tresor.Provider
-import com.softwaremill.sttp.{ Response, sttp }
+import sttp.client3._
 import io.circe.Json
 import io.circe.generic.auto._
-import com.softwaremill.sttp._
 import org.slf4j.LoggerFactory
-import cats.syntax.either._ // shadow either for Scala 2.11
 
 private[vault] final case class LeaseDTO(
   lease_id: Option[String],
@@ -38,11 +36,11 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext](implicit sync: S
   def renew(lease: Lease, increment: Option[Long]): ReaderT[Effect, VaultConfig, Lease] = lease.leaseId.map { leaseId =>
     ReaderT[Effect, VaultConfig, Lease] { vaultConfig =>
       sync.flatMap(sync.delay {
-        sttp
+        basicRequest
           .post(uri"${vaultConfig.apiUrl}/sys/leases/renew")
           .body(Json.obj("lease_id" -> Json.fromString(leaseId), "increment" -> Json.fromLong(increment.getOrElse(3600))).noSpaces)
           .header("X-Vault-Token", vaultConfig.token)
-          .send()
+          .send(backend)
       }) { response =>
         log.debug("response from vault: {}", response)
         parseLease(response).map(renewed => renewed.copy(data = lease.data))
@@ -95,7 +93,7 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext](implicit sync: S
     } yield updated
   }
 
-  protected def parseLease(response: Response[String]): Effect[Lease] = {
+  protected def parseLease(response: Response[Either[String, String]]): Effect[Lease] = {
     for {
       now <- clock.realTime(TimeUnit.SECONDS)
       body <- sync.fromEither(response.body.left.map(new RuntimeException(_)))

@@ -3,7 +3,7 @@ package com.drobisch.tresor.vault
 import cats.data.ReaderT
 import cats.effect.{ Clock, Sync }
 import com.drobisch.tresor.Secret
-import com.softwaremill.sttp._
+import sttp.client3._
 
 final case class AwsContext(
   name: String,
@@ -35,10 +35,10 @@ class AWS[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEnginePro
 
     val requestUri = s"${vaultConfig.apiUrl}/aws/$infixPart/${awsContext.name}?$roleArnPart$ttlPart"
 
-    sttp
+    basicRequest
       .get(uri"$requestUri")
       .header("X-Vault-Token", vaultConfig.token)
-      .send()
+      .send(backend)
   }) { response =>
     log.debug("response from vault: {}", response)
     parseLease(response)

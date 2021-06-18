@@ -2,7 +2,7 @@ package com.drobisch.tresor.vault
 
 import cats.effect.{ Clock, Sync }
 import com.drobisch.tresor.Secret
-import com.softwaremill.sttp._
+import sttp.client3._
 
 final case class DatabaseContext(role: String)
 
@@ -23,10 +23,10 @@ class Database[F[_]](implicit sync: Sync[F], clock: Clock[F]) extends SecretEngi
   override def secret(context: (DatabaseContext, VaultConfig))(implicit secret: Secret[Lease]): F[Lease] = {
     val (db, vaultConfig) = context
 
-    val response = sttp
+    val response = basicRequest
       .get(uri"${vaultConfig.apiUrl}/database/creds/${db.role}")
       .header("X-Vault-Token", vaultConfig.token)
-      .send()
+      .send(backend)
 
     log.debug("response from vault: {}", response)
 

@@ -1,7 +1,7 @@
 package com.drobisch.tresor.vault
 
-import com.softwaremill.sttp.HttpURLConnectionBackend
+import sttp.client3._
 
 trait HttpSupport {
-  protected implicit val backend = HttpURLConnectionBackend()
+  protected lazy val backend = HttpURLConnectionBackend()
 }

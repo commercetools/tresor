@@ -3,9 +3,10 @@ package com.drobisch.tresor.vault
 import cats.effect.IO
 import com.drobisch.tresor.{ StepClock, WireMockSupport }
 import com.github.tomakehurst.wiremock.client.WireMock.{ aResponse, equalTo, get, urlEqualTo }
-import org.scalatest.{ FlatSpec, Matchers }
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class DatabaseSpec extends FlatSpec with Matchers with WireMockSupport {
+class DatabaseSpec extends AnyFlatSpec with Matchers with WireMockSupport {
   "Database provider" should "read credentials" in {
     val serverResponse =
       s"""
