@@ -1,5 +1,7 @@
 package com.drobisch.tresor.vault
 
+import cats.data.ReaderT
+
 import java.util.concurrent.TimeUnit
 import io.circe.generic.auto._
 import io.circe.syntax._
@@ -38,7 +40,7 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
         )
         implicit val clock = StepClock(1)
 
-        AWS[IO].secret(AwsContext(name = "some-role"), vaultConfig)
+        AWS[IO]("aws").secret(AwsContext(name = "some-role"), vaultConfig)
       }
     ).unsafeRunSync()
 
@@ -69,7 +71,7 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
           )
       }
 
-    val mockedAws = new AWS[IO]() {
+    val mockedAws = new AWS[IO]("aws") {
       override protected implicit lazy val backend = http
     }
 
@@ -116,11 +118,11 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
           renewable = true,
           data = Map("foo" -> Some("bar")),
           leaseDuration = Some(60),
-          issueTime = 1
+          creationTime = 1
         )
         implicit val clock = StepClock(1)
 
-        AWS[IO].renew(existingLease, increment = Some(60))(vaultConfig)
+        AWS[IO]("aws").renew(existingLease, increment = Some(60))(vaultConfig)
       }
     ).unsafeRunSync()
 
@@ -129,7 +131,8 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
       data = Map("foo" -> Some("bar")),
       renewable = true,
       leaseDuration = Some(60),
-      issueTime = 1
+      creationTime = 1,
+      lastRenewalTime = Some(1)
     )
 
     result should be(expectedLease)
@@ -143,7 +146,7 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
       data = Map.empty,
       renewable = true,
       leaseDuration = Some(60),
-      issueTime = 0
+      creationTime = 0
     )
 
     def leaseDTO(prefix: String) =
@@ -162,7 +165,7 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
           Response.ok[String](leaseDTO("renew"))
       }
 
-    val mockedAws = new AWS[IO]() {
+    val mockedAws = new AWS[IO]("aws") {
       override protected implicit lazy val backend
           : SttpBackendStub[Identity, capabilities.WebSockets] = http
     }
@@ -172,36 +175,34 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
     val awsContext = AwsContext(name = "some-role")
     val currentLease = Ref.unsafe[IO, Option[Lease]](Some(aLease))
 
-    val leaseWithRefresh = mockedAws.autoRefresh(currentLease)(
-      mockedAws.createCredentials(awsContext)
+    val leaseWithRefresh = mockedAws.refresh(currentLease)(
+      create = mockedAws.createCredentials(awsContext),
+      renew = current => mockedAws.renew(current, Some(3600)),
+      maxReached = ReaderT.liftF(IO.raiseError(new IllegalStateException()))
     )(vaultConfig)
 
     leaseWithRefresh.unsafeRunSync() should be(
-      Lease(Some("init"), Map(), renewable = true, Some(60), 0)
+      Lease(Some("init"), Map(), renewable = true, Some(60), lastRenewalTime = None, creationTime = 0)
     )
 
     clock.timeRef.set(60).unsafeRunSync()
 
-    leaseWithRefresh.unsafeRunSync() should be(
-      Lease(Some("new61"), Map(), renewable = true, Some(60), 62)
-    )
+    val firstRenewed = Lease(Some("renew62"), Map(), renewable = true, leaseDuration = Some(60), creationTime = 0, lastRenewalTime = Some(61))
 
+    leaseWithRefresh.unsafeRunSync() should be(firstRenewed)
     clock.timeRef.set(62).unsafeRunSync()
+    leaseWithRefresh.unsafeRunSync() should be(firstRenewed)
 
+    clock.timeRef.set(93).unsafeRunSync()
     leaseWithRefresh.unsafeRunSync() should be(
-      Lease(Some("new61"), Map(), renewable = true, Some(60), 62)
+      Lease(Some("renew95"), Map(), renewable = true, leaseDuration = Some(60), creationTime = 0, lastRenewalTime = Some(94))
     )
 
-    clock.timeRef.set(92).unsafeRunSync() // halflife
+    clock.timeRef.set(3600).attempt.unsafeRunSync()
 
-    leaseWithRefresh.unsafeRunSync() should be(
-      Lease(Some("renew93"), Map(), renewable = true, Some(60), 94)
-    )
-
-    clock.timeRef.set(600).unsafeRunSync() // expired
-
-    leaseWithRefresh.unsafeRunSync() should be(
-      Lease(Some("new601"), Map(), renewable = true, Some(60), 602)
-    )
+    leaseWithRefresh.attempt.unsafeRunSync() match {
+      case Left(error: IllegalStateException) => succeed
+      case _ => fail
+    }
   }
 }

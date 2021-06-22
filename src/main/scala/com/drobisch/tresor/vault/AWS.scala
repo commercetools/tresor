@@ -19,8 +19,8 @@ final case class AwsContext(
   * @tparam F
   *   effect type to use
   */
-class AWS[F[_]](implicit sync: Sync[F], clock: Clock[F])
-    extends SecretEngineProvider[F, (AwsContext, VaultConfig)] {
+class AWS[F[_]](val path: String)(implicit sync: Sync[F], clock: Clock[F])
+    extends SecretEngineProvider[F, (AwsContext, VaultConfig), Nothing] {
 
   /** create a aws engine credential
     *
@@ -37,10 +37,10 @@ class AWS[F[_]](implicit sync: Sync[F], clock: Clock[F])
     sync.flatMap(sync.delay {
       val roleArnPart = awsContext.roleArn.map(s"&role_arn=" + _).getOrElse("")
       val ttlPart = "&ttl=" + awsContext.ttlString.getOrElse("3600s")
-      val infixPart = if (awsContext.useSts) "sts" else "creds"
+      val stsOrCreds = if (awsContext.useSts) "sts" else "creds"
 
       val requestUri =
-        s"${vaultConfig.apiUrl}/aws/$infixPart/${awsContext.name}?$roleArnPart$ttlPart"
+        s"${vaultConfig.apiUrl}/$path/$stsOrCreds/${awsContext.name}?$roleArnPart$ttlPart"
 
       basicRequest
         .get(uri"$requestUri")
@@ -60,5 +60,5 @@ class AWS[F[_]](implicit sync: Sync[F], clock: Clock[F])
 }
 
 object AWS {
-  def apply[F[_]](implicit sync: Sync[F], clock: Clock[F]) = new AWS[F]
+  def apply[F[_]](path: String)(implicit sync: Sync[F], clock: Clock[F]) = new AWS[F](path)
 }
