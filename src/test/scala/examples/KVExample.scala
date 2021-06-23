@@ -13,6 +13,6 @@ object KVExample extends App {
     VaultConfig(apiUrl = "http://vault-host:8200/v1", token = "vault-token")
 
   val kvSecret: IO[Lease] =
-    KV[cats.effect.IO].secret(KeyValueContext(key = "treasure"), vaultConfig)
+    KV[cats.effect.IO]("secret").secret(KeyValueContext(key = "treasure"), vaultConfig)
   // #kv-example
 }

@@ -15,9 +15,11 @@ object AWSExample {
     VaultConfig(apiUrl = s"http://vault-host/v1", token = "vault-token")
   val awsContext = AwsContext(name = "some-role")
   val initialLease: Ref[IO, Option[Lease]] = Ref.unsafe[IO, Option[Lease]](None)
+  val awsEngine = AWS[IO]("aws")
 
-  val leaseWithRefresh: IO[Lease] = AWS[IO].autoRefresh(initialLease)(
-    AWS[IO].createCredentials(awsContext)
+  val leaseWithRefresh: IO[Lease] = AWS[IO]("aws").refresh(initialLease)(
+    create = awsEngine.createCredentials(awsContext),
+    renew = current => awsEngine.renew(current, Some(60))
   )(vaultConfig)
   // #aws-example
 }

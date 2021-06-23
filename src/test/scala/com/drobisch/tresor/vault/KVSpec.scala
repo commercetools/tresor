@@ -32,7 +32,7 @@ class KVSpec extends AnyFlatSpec with Matchers with WireMockSupport {
         )
         implicit val clock = StepClock(1)
 
-        vault.KV[IO].secret(KeyValueContext(key = "treasure"), vaultConfig)
+        vault.KV[IO]("secret").secret(KeyValueContext(key = "treasure"), vaultConfig)
       }
     ).unsafeRunSync()
 

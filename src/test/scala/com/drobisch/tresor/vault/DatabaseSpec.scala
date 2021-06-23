@@ -37,7 +37,7 @@ class DatabaseSpec extends AnyFlatSpec with Matchers with WireMockSupport {
         val dbContext = DatabaseContext("role")
         implicit val clock = StepClock(1)
 
-        Database[IO].secret(dbContext, vaultConfig)
+        Database[IO]("database").secret(dbContext, vaultConfig)
       }
     ).unsafeRunSync()
 

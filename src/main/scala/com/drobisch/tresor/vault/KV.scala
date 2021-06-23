@@ -13,8 +13,8 @@ final case class KeyValueContext(key: String)
   * @tparam F
   *   effect type to use
   */
-class KV[F[_]](implicit sync: Sync[F], clock: Clock[F])
-    extends SecretEngineProvider[F, (KeyValueContext, VaultConfig)] {
+class KV[F[_]](val path: String)(implicit sync: Sync[F], clock: Clock[F])
+    extends SecretEngineProvider[F, (KeyValueContext, VaultConfig), Nothing] {
 
   /** read the secret from a path
     *
@@ -29,7 +29,7 @@ class KV[F[_]](implicit sync: Sync[F], clock: Clock[F])
     val (kv, vaultConfig) = context
 
     val response = basicRequest
-      .get(uri"${vaultConfig.apiUrl}/secret/${kv.key}")
+      .get(uri"${vaultConfig.apiUrl}/$path/${kv.key}")
       .header("X-Vault-Token", vaultConfig.token)
       .send(backend)
 
@@ -40,5 +40,5 @@ class KV[F[_]](implicit sync: Sync[F], clock: Clock[F])
 }
 
 object KV {
-  def apply[F[_]](implicit sync: Sync[F], clock: Clock[F]) = new KV[F]
+  def apply[F[_]](path: String)(implicit sync: Sync[F], clock: Clock[F]) = new KV[F](path)
 }
