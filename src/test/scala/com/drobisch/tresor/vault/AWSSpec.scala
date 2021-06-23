@@ -122,7 +122,7 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
         )
         implicit val clock = StepClock(1)
 
-        AWS[IO]("aws").renew(existingLease, increment = Some(60))(vaultConfig)
+        AWS[IO]("aws").renew(existingLease, increment = 60)(vaultConfig)
       }
     ).unsafeRunSync()
 
@@ -177,8 +177,7 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
     val leaseWithRefresh = mockedAws.refresh(currentLease)(
       create = mockedAws.createCredentials(awsContext),
-      renew = current => mockedAws.renew(current, Some(3600)),
-      maxReached = ReaderT.liftF(IO.raiseError(new IllegalStateException()))
+      renew = mockedAws.renew
     )(vaultConfig)
 
     leaseWithRefresh.unsafeRunSync() should be(
