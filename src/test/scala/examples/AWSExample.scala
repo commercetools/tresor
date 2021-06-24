@@ -19,7 +19,7 @@ object AWSExample {
 
   val leaseWithRefresh: IO[Lease] = AWS[IO]("aws").refresh(initialLease)(
     create = awsEngine.createCredentials(awsContext),
-    renew = current => awsEngine.renew(current, Some(60))
+    renew = awsEngine.renew
   )(vaultConfig)
   // #aws-example
 }
