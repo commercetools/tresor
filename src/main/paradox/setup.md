@@ -6,6 +6,6 @@ Add the dependency to your build:
 
 @@@vars
 ```scala
-libraryDependencies += "com.drobisch" %% "tesor" % "$version$"
+libraryDependencies += "com.drobisch" %% "tresor" % "$version$"
 ```
 @@@
