@@ -32,7 +32,7 @@
 <span class="home-icon">⌂</span>tresor 🔒
 </a>
 <div class="version-number">
-0.2.0
+0.4.0
 </div>
 </div>
 <div class="nav-toc">
@@ -70,7 +70,7 @@ C16.952,7,17,6.553,17,6c0-0.553-0.048-1-0.6-1H3.6C3.048,5,3,5.447,3,6C3,6.553,3.
 <span class="home-icon">⌂</span>tresor 🔒
 </a>
 <div class="version-number">
-0.2.0
+0.4.0
 </div>
 </div>
 <div class="nav-toc">
@@ -104,19 +104,21 @@ C16.952,7,17,6.553,17,6c0-0.553-0.048-1-0.6-1H3.6C3.048,5,3,5.447,3,6C3,6.553,3.
 <h1><a href="#examples" name="examples" class="anchor"><span class="anchor-link"></span></a>Examples</h1>
 <h2><a href="#using-the-vault-key-value-engine" name="using-the-vault-key-value-engine" class="anchor"><span class="anchor-link"></span></a>Using the Vault Key Value Engine</h2>
 <p>The KV engine in vault lets you store arbitrary secrets in a JSON-object like manner. This will create non-refreshable (as in <em>always valid</em>) leases:</p>
-<pre class="prettyprint"><button class="snippet-button copy-snippet" title="Copy snippet to clipboard">copy</button><a class="snippet-button go-to-source" href="https://github.com/adrobisch/tresor/tree/v0.2.0/src/test/scala/examples/KVExample.scala#L5-L14" target="_blank" title="Go to snippet source">source</a><code class="language-scala">import cats.effect.{ IO, Timer }
+<pre class="prettyprint"><button class="snippet-button copy-snippet" title="Copy snippet to clipboard">copy</button><a class="snippet-button go-to-source" href="https://github.com/adrobisch/tresor/tree/v0.4.0/src/test/scala/examples/KVExample.scala#L5-L16" target="_blank" title="Go to snippet source">source</a><code class="language-scala">import cats.effect.{IO, Timer}
 import scala.concurrent.ExecutionContext
 import com.drobisch.tresor.vault._
 
 implicit val executionContext: ExecutionContext = ???
 implicit val timer: Timer[IO] = cats.effect.IO.timer(executionContext)
 
-val vaultConfig = VaultConfig(apiUrl = &quot;http://vault-host:8200/v1&quot;, token = &quot;vault-token&quot;)
+val vaultConfig =
+  VaultConfig(apiUrl = &quot;http://vault-host:8200/v1&quot;, token = &quot;vault-token&quot;)
 
-val kvSecret: IO[Lease] = KV[cats.effect.IO].secret(KeyValueContext(key = &quot;treasure&quot;), vaultConfig)</code></pre>
+val kvSecret: IO[Lease] =
+  KV[cats.effect.IO](&quot;secret&quot;).secret(KeyValueContext(key = &quot;treasure&quot;), vaultConfig)</code></pre>
 <h2><a href="#using-the-aws-engine-with-auto-refresh" name="using-the-aws-engine-with-auto-refresh" class="anchor"><span class="anchor-link"></span></a>Using the AWS Engine with auto-refresh</h2>
 <p>The AWS engine create refreshable leases for which a reference can be used for storing. Usually you would create the reference in a <strong>safe</strong> way during application bootstrap, this has been omitted here: </p>
-<pre class="prettyprint"><button class="snippet-button copy-snippet" title="Copy snippet to clipboard">copy</button><a class="snippet-button go-to-source" href="https://github.com/adrobisch/tresor/tree/v0.2.0/src/test/scala/examples/AWSExample.scala#L5-L18" target="_blank" title="Go to snippet source">source</a><code class="language-scala">import cats.effect.IO
+<pre class="prettyprint"><button class="snippet-button copy-snippet" title="Copy snippet to clipboard">copy</button><a class="snippet-button go-to-source" href="https://github.com/adrobisch/tresor/tree/v0.4.0/src/test/scala/examples/AWSExample.scala#L5-L23" target="_blank" title="Go to snippet source">source</a><code class="language-scala">import cats.effect.IO
 import cats.effect.concurrent.Ref
 import cats.effect.Timer
 
@@ -125,13 +127,18 @@ import com.drobisch.tresor.vault._
 implicit val executionContext: scala.concurrent.ExecutionContext = ???
 implicit val timer: Timer[IO] = cats.effect.IO.timer(executionContext)
 
-val vaultConfig = VaultConfig(apiUrl = s&quot;http://vault-host/v1&quot;, token = &quot;vault-token&quot;)
+val vaultConfig =
+  VaultConfig(apiUrl = s&quot;http://vault-host/v1&quot;, token = &quot;vault-token&quot;)
 val awsContext = AwsContext(name = &quot;some-role&quot;)
 val initialLease: Ref[IO, Option[Lease]] = Ref.unsafe[IO, Option[Lease]](None)
+val awsEngine = AWS[IO](&quot;aws&quot;)
 
-val leaseWithRefresh: IO[Lease] = AWS[IO].autoRefresh(initialLease)(AWS[IO].createCredentials(awsContext))(vaultConfig)</code></pre>
+val leaseWithRefresh: IO[Lease] = AWS[IO](&quot;aws&quot;).refresh(initialLease)(
+  create = awsEngine.createCredentials(awsContext),
+  renew = awsEngine.renew
+)(vaultConfig)</code></pre>
 <div class="source-github">
-The source code for this page can be found <a href="https://github.com/adrobisch/tresor/tree/v0.2.0/src/main/paradox/examples.md">here</a>.
+The source code for this page can be found <a href="https://github.com/adrobisch/tresor/tree/v0.4.0/src/main/paradox/examples.md">here</a>.
 </div>
 
 </div>
@@ -212,7 +219,7 @@ The source code for this page can be found <a href="https://github.com/adrobisch
 <script type="text/javascript" src="lib/prettify/prettify.js"></script>
 <script type="text/javascript" src="lib/prettify/lang-scala.js"></script>
 <script type="text/javascript">jQuery(function(){window.prettyPrint && prettyPrint()});</script>
-<script type="text/javascript">jQuery(function(jq){initOldVersionWarnings(jq, '0.2.0', 'https://github.com/adrobisch/tresor')});</script>
+<script type="text/javascript">jQuery(function(jq){initOldVersionWarnings(jq, '0.4.0', 'https://github.com/adrobisch/tresor')});</script>
 
 
 </html>
