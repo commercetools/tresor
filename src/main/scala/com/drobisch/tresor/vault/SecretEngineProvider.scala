@@ -187,6 +187,14 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext, Config](implicit
     }
   }
 
+  protected def parseEmptyResponse(
+      response: Response[Either[String, String]]
+  ): Effect[Unit] = {
+    for {
+      _ <- sync.fromEither(response.body.left.map(new RuntimeException(_)))
+    } yield ()
+  }
+
   protected def fromDto(dto: LeaseDTO, now: Long): Lease = {
     Lease(
       leaseId = dto.lease_id,
