@@ -30,26 +30,27 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext, Config](implicit
     with HttpSupport {
   protected val log = LoggerFactory.getLogger(getClass)
 
-  /**
-    * the path at which this engine is mounted
+  /** the path at which this engine is mounted
     * @return
     */
   def path: String
 
-  /**
-    * write a config for this engine path
+  /** write a config for this engine path
     * @param config
     */
-  def writeConfig(name: String, config: Config)(implicit encoder: Encoder[Config]): ReaderT[Effect, VaultConfig, Json] = for {
+  def writeConfig(name: String, config: Config)(implicit
+      encoder: Encoder[Config]
+  ): ReaderT[Effect, VaultConfig, Json] = for {
     response <-
-      ReaderT[Effect, VaultConfig, Response[Either[String, String]]] { vaultConfig =>
-        val request = basicRequest
-          .post(uri"${vaultConfig.apiUrl}/$path/config/$name")
-          .body(config.asJson.noSpaces)
-          .header("X-Vault-Token", vaultConfig.token)
-          .send(backend)
+      ReaderT[Effect, VaultConfig, Response[Either[String, String]]] {
+        vaultConfig =>
+          val request = basicRequest
+            .post(uri"${vaultConfig.apiUrl}/$path/config/$name")
+            .body(config.asJson.noSpaces)
+            .header("X-Vault-Token", vaultConfig.token)
+            .send(backend)
 
-        sync.delay(request)
+          sync.delay(request)
       }
     json <- ReaderT.liftF(response.parseJson)
   } yield json
@@ -61,8 +62,9 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext, Config](implicit
     * @param lease
     *   a lease
     * @param increment
-    *   time to extend the lease in seconds
-    *   (depending on the engine, this might be treated as the new ttl of the lease, this is the case for Mongo Atlas)
+    *   time to extend the lease in seconds (depending on the engine, this might
+    *   be treated as the new ttl of the lease, this is the case for Mongo
+    *   Atlas)
     * @return
     *   reader for an extended lease
     */
@@ -73,7 +75,9 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext, Config](implicit
     .map { leaseId =>
       for {
         now <- ReaderT.liftF(clock.realTime(TimeUnit.SECONDS))
-        response <- ReaderT[Effect, VaultConfig, Response[Either[String, String]]] { vaultConfig =>
+        response <- ReaderT[Effect, VaultConfig, Response[
+          Either[String, String]
+        ]] { vaultConfig =>
           sync.delay {
             basicRequest
               .post(uri"${vaultConfig.apiUrl}/sys/leases/renew")
@@ -113,10 +117,9 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext, Config](implicit
     *
     * This is not a continuous refresh, the flow is:
     *
-    *   1. if lease is not renewable: create a new lease
-    *   2. if its not expired but the current time is greater then issue time * refresh ratio:
-    *      refresh the current lease
-    *   3. return the current lease otherwise
+    *   1. if lease is not renewable: create a new lease 2. if its not expired
+    *      but the current time is greater then issue time * refresh ratio:
+    *      refresh the current lease 3. return the current lease otherwise
     *
     * @param leaseRef
     *   a reference to the current (maybe empty) lease
@@ -130,12 +133,17 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext, Config](implicit
     * @return
     *   an effect reader with the logic above applied
     */
-  def refresh(leaseRef: Ref[Effect, Option[Lease]],
-              refreshTtl: Long = 3600,
-              refreshRatio: Double = 0.5)(
-    create: ReaderT[Effect, VaultConfig, Lease],
-    renew: (Lease, Long) => ReaderT[Effect, VaultConfig, Lease],
-    maxReached: Lease => Effect[Unit] = lease => sync.raiseError(new RuntimeException(s"lease has reached max lifetime: $lease"))
+  def refresh(
+      leaseRef: Ref[Effect, Option[Lease]],
+      refreshTtl: Long = 3600,
+      refreshRatio: Double = 0.5
+  )(
+      create: ReaderT[Effect, VaultConfig, Lease],
+      renew: (Lease, Long) => ReaderT[Effect, VaultConfig, Lease],
+      maxReached: Lease => Effect[Unit] = lease =>
+        sync.raiseError(
+          new RuntimeException(s"lease has reached max lifetime: $lease")
+        )
   ): ReaderT[Effect, VaultConfig, Lease] = {
     for {
       now <- ReaderT.liftF(clock.realTime(TimeUnit.SECONDS))
@@ -144,14 +152,16 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext, Config](implicit
         currentLease match {
           case Some(lease) =>
             val duration = lease.leaseDuration.getOrElse(0L)
-            val expiryTime = lease.lastRenewalTime.getOrElse(lease.creationTime) + duration
+            val expiryTime =
+              lease.lastRenewalTime.getOrElse(lease.creationTime) + duration
             val refreshTime = expiryTime - duration * refreshRatio
 
             if (!lease.renewable) {
               create
             } else if (now >= refreshTime) {
               renew(lease, refreshTtl).flatMap(newLease => {
-                if (newLease.leaseDuration.forall(_ < refreshTtl)) ReaderT.liftF(maxReached(newLease).map(_ => newLease))
+                if (newLease.leaseDuration.forall(_ < refreshTtl))
+                  ReaderT.liftF(maxReached(newLease).map(_ => newLease))
                 else ReaderT.pure(newLease)
               })
             } else ReaderT[Effect, VaultConfig, Lease](_ => sync.pure(lease))
@@ -165,11 +175,15 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext, Config](implicit
     } yield updated
   }
 
-  def autoRefresh(refresh: ReaderT[Effect, VaultConfig, Lease],
-                  every: FiniteDuration)(implicit timer: Timer[Effect]): ReaderT[Effect, VaultConfig, Unit] = for {
+  def autoRefresh(
+      refresh: ReaderT[Effect, VaultConfig, Lease],
+      every: FiniteDuration
+  )(implicit timer: Timer[Effect]): ReaderT[Effect, VaultConfig, Unit] = for {
     _ <- ReaderT.liftF(sync.delay(log.debug(s"auto refreshing every $every")))
     currentLease <- refresh
-    _ <- ReaderT.liftF(sync.delay(log.debug(s"current lease during refresh: $currentLease")))
+    _ <- ReaderT.liftF(
+      sync.delay(log.debug(s"current lease during refresh: $currentLease"))
+    )
     _ <- ReaderT.liftF(timer.sleep(every))
     _ <- autoRefresh(refresh, every)
   } yield ()

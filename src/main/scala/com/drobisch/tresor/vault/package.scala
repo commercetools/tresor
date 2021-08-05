@@ -1,7 +1,6 @@
 package com.drobisch.tresor
 
-/**
-  * basic types to implement secrets coming from https://www.vaultproject.io
+/** basic types to implement secrets coming from https://www.vaultproject.io
   */
 package object vault {
   final case class VaultConfig(apiUrl: String, token: String)
@@ -24,12 +23,12 @@ package object vault {
     *   the total time of the lease
     */
   final case class Lease(
-                          leaseId: Option[String],
-                          data: Map[String, Option[String]],
-                          renewable: Boolean,
-                          leaseDuration: Option[Long],
-                          creationTime: Long,
-                          lastRenewalTime: Option[Long] = None
+      leaseId: Option[String],
+      data: Map[String, Option[String]],
+      renewable: Boolean,
+      leaseDuration: Option[Long],
+      creationTime: Long,
+      lastRenewalTime: Option[Long] = None
   ) {
     def totalLeaseDuration(now: Long): Long = now - creationTime
   }

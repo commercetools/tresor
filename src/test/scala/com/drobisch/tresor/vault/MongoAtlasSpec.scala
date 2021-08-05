@@ -13,7 +13,8 @@ import scala.concurrent.duration.DurationInt
 class MongoAtlasSpec extends AnyFlatSpec with Matchers {
   val log = LoggerFactory.getLogger(getClass)
 
-  val config = VaultConfig("http://0.0.0.0:8200/v1", "vault-plaintext-root-token")
+  val config =
+    VaultConfig("http://0.0.0.0:8200/v1", "vault-plaintext-root-token")
   val role = sys.env.getOrElse("ATLAS_ROLE", "test-role")
 
   "Mongo Credentials" should "be created" in {
@@ -31,9 +32,9 @@ class MongoAtlasSpec extends AnyFlatSpec with Matchers {
 
     val createAndRenew = for {
       initial <- atlasEngine.secret(DatabaseContext(role), config)
-      _ =  log.info(s"initial: $initial")
+      _ = log.info(s"initial: $initial")
       renewed <- atlasEngine.renew(initial, 60)(config)
-      _ =  log.info(s"renewed: $renewed")
+      _ = log.info(s"renewed: $renewed")
     } yield ()
 
     createAndRenew.unsafeRunSync()
@@ -41,26 +42,28 @@ class MongoAtlasSpec extends AnyFlatSpec with Matchers {
 
   it should "refresh the lease" in {
     implicit val clock = StepClock(1)
-    implicit val timer = cats.effect.IO.timer(scala.concurrent.ExecutionContext.global)
+    implicit val timer =
+      cats.effect.IO.timer(scala.concurrent.ExecutionContext.global)
 
     val atlasEngine = Database[IO]("database/atlas")
 
     val createAndRenew = for {
-      initialRef <- Ref.of[IO, Option [Lease]](None)
+      initialRef <- Ref.of[IO, Option[Lease]](None)
 
       renew = atlasEngine.refresh(initialRef, refreshTtl = 60)(
-        create = ReaderT.liftF(atlasEngine.secret(DatabaseContext(role), config)),
+        create =
+          ReaderT.liftF(atlasEngine.secret(DatabaseContext(role), config)),
         renew = atlasEngine.renew
       )(config)
 
       created <- renew
-      _ =  log.info(s"created: $created")
+      _ = log.info(s"created: $created")
       _ <- clock.timeRef.set(15)
       notRenewed <- renew
-      _ =  log.info(s"not renewed: $notRenewed")
+      _ = log.info(s"not renewed: $notRenewed")
       _ <- clock.timeRef.set(302)
       renewed <- renew
-      _ =  log.info(s"renewed: $renewed")
+      _ = log.info(s"renewed: $renewed")
       _ <- clock.timeRef.set(334)
       _ <- IO.sleep(2.seconds)
       maxReached <- renew
@@ -71,15 +74,17 @@ class MongoAtlasSpec extends AnyFlatSpec with Matchers {
 
   it should "auto refresh" in {
     implicit val clock = Clock.create[IO]
-    implicit val timer = cats.effect.IO.timer(scala.concurrent.ExecutionContext.global)
+    implicit val timer =
+      cats.effect.IO.timer(scala.concurrent.ExecutionContext.global)
 
     val atlasEngine = Database[IO]("database/atlas")
 
     val createAndRenew = for {
-      initialRef <- ReaderT.liftF(Ref.of[IO, Option [Lease]](None))
+      initialRef <- ReaderT.liftF(Ref.of[IO, Option[Lease]](None))
 
       renew = atlasEngine.refresh(initialRef, refreshTtl = 15)(
-        create = ReaderT.liftF(atlasEngine.secret(DatabaseContext(role), config)),
+        create =
+          ReaderT.liftF(atlasEngine.secret(DatabaseContext(role), config)),
         renew = atlasEngine.renew
       )
 

@@ -181,12 +181,26 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
     )(vaultConfig)
 
     leaseWithRefresh.unsafeRunSync() should be(
-      Lease(Some("init"), Map(), renewable = true, Some(60), lastRenewalTime = None, creationTime = 0)
+      Lease(
+        Some("init"),
+        Map(),
+        renewable = true,
+        Some(60),
+        lastRenewalTime = None,
+        creationTime = 0
+      )
     )
 
     clock.timeRef.set(60).unsafeRunSync()
 
-    val firstRenewed = Lease(Some("renew62"), Map(), renewable = true, leaseDuration = Some(60), creationTime = 0, lastRenewalTime = Some(61))
+    val firstRenewed = Lease(
+      Some("renew62"),
+      Map(),
+      renewable = true,
+      leaseDuration = Some(60),
+      creationTime = 0,
+      lastRenewalTime = Some(61)
+    )
 
     leaseWithRefresh.unsafeRunSync() should be(firstRenewed)
     clock.timeRef.set(62).unsafeRunSync()
@@ -194,14 +208,21 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
     clock.timeRef.set(93).unsafeRunSync()
     leaseWithRefresh.unsafeRunSync() should be(
-      Lease(Some("renew95"), Map(), renewable = true, leaseDuration = Some(60), creationTime = 0, lastRenewalTime = Some(94))
+      Lease(
+        Some("renew95"),
+        Map(),
+        renewable = true,
+        leaseDuration = Some(60),
+        creationTime = 0,
+        lastRenewalTime = Some(94)
+      )
     )
 
     clock.timeRef.set(3600).attempt.unsafeRunSync()
 
     leaseWithRefresh.attempt.unsafeRunSync() match {
       case Left(error: IllegalStateException) => succeed
-      case _ => fail
+      case _                                  => fail
     }
   }
 }

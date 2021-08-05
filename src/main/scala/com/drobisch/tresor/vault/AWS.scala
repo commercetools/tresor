@@ -60,5 +60,6 @@ class AWS[F[_]](val path: String)(implicit sync: Sync[F], clock: Clock[F])
 }
 
 object AWS {
-  def apply[F[_]](path: String)(implicit sync: Sync[F], clock: Clock[F]) = new AWS[F](path)
+  def apply[F[_]](path: String)(implicit sync: Sync[F], clock: Clock[F]) =
+    new AWS[F](path)
 }

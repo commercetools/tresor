@@ -41,5 +41,6 @@ class Database[F[_]](val path: String)(implicit sync: Sync[F], clock: Clock[F])
 }
 
 object Database {
-  def apply[F[_]](path: String)(implicit sync: Sync[F], clock: Clock[F]) = new Database[F](path)
+  def apply[F[_]](path: String)(implicit sync: Sync[F], clock: Clock[F]) =
+    new Database[F](path)
 }

@@ -36,7 +36,9 @@ class KVSpec extends AnyFlatSpec with Matchers with WireMockSupport {
         )
         implicit val clock = StepClock(1)
 
-        vault.KV[IO]("secret").secret(KeyValueContext(key = "treasure"), vaultConfig)
+        vault
+          .KV[IO]("secret")
+          .secret(KeyValueContext(key = "treasure"), vaultConfig)
       }
     ).unsafeRunSync()
 
@@ -53,13 +55,16 @@ class KVSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
   "KV provider" should "read an existing token from vault KV engine (uses Docker Vault with pre-stored secret)" ignore {
     // Needs a v1 secret engine under "secret-v1" and a secret "foobar" with data: foo -> bar
-    implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.global
+    implicit val executionContext: ExecutionContext =
+      scala.concurrent.ExecutionContext.global
     implicit val timer: Timer[IO] = cats.effect.IO.timer(executionContext)
 
-    val config = VaultConfig("http://0.0.0.0:8200/v1", "vault-plaintext-root-token")
+    val config =
+      VaultConfig("http://0.0.0.0:8200/v1", "vault-plaintext-root-token")
 
     val kvSecret: IO[Lease] =
-      KV[cats.effect.IO]("secret-v1").secret(KeyValueContext(key = "foobar"), config)
+      KV[cats.effect.IO]("secret-v1")
+        .secret(KeyValueContext(key = "foobar"), config)
 
     val result = kvSecret.unsafeRunSync()
     result.data should be(
@@ -69,22 +74,27 @@ class KVSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
   "KV provider" should "create, update and read a new token from vault KV engine (uses Docker Vault)" in {
     // Needs a v1 secret engine under "secret-v1"
-    implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.global
+    implicit val executionContext: ExecutionContext =
+      scala.concurrent.ExecutionContext.global
     implicit val timer: Timer[IO] = cats.effect.IO.timer(executionContext)
 
-    val config = VaultConfig("http://0.0.0.0:8200/v1", "vault-plaintext-root-token")
+    val config =
+      VaultConfig("http://0.0.0.0:8200/v1", "vault-plaintext-root-token")
 
     val secretName = Random.alphanumeric.take(10).mkString
     def createKvSecret: IO[Unit] =
       KV[cats.effect.IO]("secret-v1").createSecret(
         (KeyValueContext(key = secretName), config),
-        Map("foo" -> Some("bar")))
+        Map("foo" -> Some("bar"))
+      )
     def updateKvSecret: IO[Unit] =
       KV[cats.effect.IO]("secret-v1").createSecret(
         (KeyValueContext(key = secretName), config),
-        Map("foo" -> Some("baz")))
+        Map("foo" -> Some("baz"))
+      )
     def kvSecret: IO[Lease] =
-      KV[cats.effect.IO]("secret-v1").secret(KeyValueContext(key = secretName), config)
+      KV[cats.effect.IO]("secret-v1")
+        .secret(KeyValueContext(key = secretName), config)
 
     val result = (for {
       _ <- createKvSecret

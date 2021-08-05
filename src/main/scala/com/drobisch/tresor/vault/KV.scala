@@ -65,5 +65,6 @@ class KV[F[_]](val path: String)(implicit sync: Sync[F], clock: Clock[F])
 }
 
 object KV {
-  def apply[F[_]](path: String)(implicit sync: Sync[F], clock: Clock[F]) = new KV[F](path)
+  def apply[F[_]](path: String)(implicit sync: Sync[F], clock: Clock[F]) =
+    new KV[F](path)
 }

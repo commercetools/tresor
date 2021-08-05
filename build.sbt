@@ -21,11 +21,13 @@ inThisBuild(List(
 
 val circeVersion = "0.13.0"
 
-libraryDependencies ++= Seq(
+val circeDeps = Seq(
   "io.circe" %% "circe-core",
   "io.circe" %% "circe-generic",
   "io.circe" %% "circe-parser"
-).map(_ % circeVersion % Provided)
+).map(_ % circeVersion)
+
+libraryDependencies ++= circeDeps.map(_ % Provided)
 
 libraryDependencies ++= Seq(
   "org.typelevel" %% "cats-effect" % "2.5.1" % Provided,
