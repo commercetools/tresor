@@ -26,7 +26,11 @@ trait Authentication {
       vaultUrl: String,
       authPath: String,
       request: Input
-  )(implicit sync: Sync[F], e: Encoder[Input], d: Decoder[Output]): F[Output]
+  )(implicit
+      sync: Sync[F],
+      encoder: Encoder[Input],
+      decoder: Decoder[Output]
+  ): F[Output]
 }
 
 object VaultAuthentication extends Authentication with HttpSupport {
@@ -34,7 +38,11 @@ object VaultAuthentication extends Authentication with HttpSupport {
       vaultUrl: String,
       authPath: String,
       request: Input
-  )(implicit sync: Sync[F], e: Encoder[Input], d: Decoder[Output]): F[Output] =
+  )(implicit
+      sync: Sync[F],
+      encoder: Encoder[Input],
+      decoder: Decoder[Output]
+  ): F[Output] =
     for {
       response <- sync.delay(
         basicRequest
