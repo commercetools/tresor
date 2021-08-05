@@ -18,6 +18,9 @@ final case class GcpAuth(
 )
 final case class GcpLoginResponse(auth: GcpAuth, data: Option[Json] = None)
 
+/** mainly implemented with https://www.vaultproject.io/api-docs/auth/gcp#login
+  * in mind, but should work with other methods too
+  */
 trait Authentication {
   def login[F[_], Input <: LoginRequest, Output](
       vaultUrl: String,
