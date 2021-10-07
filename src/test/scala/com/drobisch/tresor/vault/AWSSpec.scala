@@ -179,12 +179,10 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
     val leaseWithRefresh = mockedAws.refresh(currentLease, refreshTtl = ttl)(
       create = mockedAws.createCredentials(awsContext),
-      renew = (lease, increment) => {
-        println(lease.lastRenewalTime)
+      renew = (lease, increment) =>
         if (lease.lastRenewalTime.forall(_ < ttl + 2))
           mockedAws.renew(lease, increment)
         else ReaderT.pure(lease.copy(leaseDuration = Some(0)))
-      }
     )(vaultConfig)
 
     leaseWithRefresh.unsafeRunSync() should be(
