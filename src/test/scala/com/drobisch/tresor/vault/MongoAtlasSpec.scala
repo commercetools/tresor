@@ -4,12 +4,21 @@ import cats.data.ReaderT
 import cats.effect.{Clock, IO}
 import cats.effect.concurrent.Ref
 import com.drobisch.tresor.StepClock
+import org.scalatest.Ignore
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.DurationInt
 
+/** Atlas would need an account and elaborate setup these tests act as
+  * documentation and setup for local development
+  *
+  * for functional/contract tests see DatabaseSpec and AWSSpec
+  *
+  * TODO: make this work with a local MongoDB
+  */
+@Ignore
 class MongoAtlasSpec extends AnyFlatSpec with Matchers {
   val log = LoggerFactory.getLogger(getClass)
 
@@ -66,7 +75,7 @@ class MongoAtlasSpec extends AnyFlatSpec with Matchers {
       _ = log.info(s"renewed: $renewed")
       _ <- clock.timeRef.set(334)
       _ <- IO.sleep(2.seconds)
-      maxReached <- renew
+      _ <- renew
     } yield ()
 
     createAndRenew.unsafeRunSync()
@@ -88,7 +97,7 @@ class MongoAtlasSpec extends AnyFlatSpec with Matchers {
         renew = atlasEngine.renew
       )
 
-      initial <- renew
+      _ <- renew
       _ <- atlasEngine.autoRefresh(renew, every = 5.seconds)
     } yield ()
 

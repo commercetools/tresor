@@ -13,6 +13,10 @@ A Scala library to access secrets (credentials etc.) from different sources.
 # Documentation
 
 see the [documentation site](https://adrobisch.github.io/tresor) for examples etc.
+
+# Development
+
+You need to run `docker-compose up` for some tests to work.
   
 # License
 
