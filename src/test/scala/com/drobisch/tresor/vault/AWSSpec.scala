@@ -141,6 +141,8 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
   it should "auto refresh lease" in {
     implicit val clock: StepClock = StepClock(1)
 
+    val ttl = 60
+
     val aLease = Lease(
       leaseId = Some("init"),
       data = Map.empty,
@@ -175,9 +177,12 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
     val awsContext = AwsContext(name = "some-role")
     val currentLease = Ref.unsafe[IO, Option[Lease]](Some(aLease))
 
-    val leaseWithRefresh = mockedAws.refresh(currentLease)(
+    val leaseWithRefresh = mockedAws.refresh(currentLease, refreshTtl = ttl)(
       create = mockedAws.createCredentials(awsContext),
-      renew = mockedAws.renew
+      renew = (lease, increment) =>
+        if (lease.lastRenewalTime.forall(_ < ttl + 2))
+          mockedAws.renew(lease, increment)
+        else ReaderT.pure(lease.copy(leaseDuration = Some(0)))
     )(vaultConfig)
 
     leaseWithRefresh.unsafeRunSync() should be(
@@ -221,8 +226,8 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
     clock.timeRef.set(3600).attempt.unsafeRunSync()
 
     leaseWithRefresh.attempt.unsafeRunSync() match {
-      case Left(error: IllegalStateException) => succeed
-      case _                                  => fail
+      case Left(_) => succeed
+      case other   => fail(s"did not expect $other")
     }
   }
 }
