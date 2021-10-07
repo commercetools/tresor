@@ -3,6 +3,7 @@ package com.drobisch.tresor
 import cats.effect._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import cats.effect.unsafe.implicits.global
 
 class TresorSpec extends AnyFlatSpec with Matchers with WireMockSupport {
   case class TestContext(data: Map[String, Option[String]])

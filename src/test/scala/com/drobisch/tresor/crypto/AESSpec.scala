@@ -3,6 +3,7 @@ package com.drobisch.tresor.crypto
 import cats.effect.IO
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import cats.effect.unsafe.implicits.global
 
 class AESSpec extends AnyFlatSpec with Matchers {
   "AES" should "encrypt and decrypt" in {

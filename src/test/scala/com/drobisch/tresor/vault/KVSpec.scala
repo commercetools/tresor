@@ -1,6 +1,6 @@
 package com.drobisch.tresor.vault
 
-import cats.effect.{IO, Timer}
+import cats.effect.IO
 import com.drobisch.tresor.{StepClock, WireMockSupport, vault}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -9,6 +9,8 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.concurrent.ExecutionContext
 import scala.util.Random
 import sttp.client3._
+
+import cats.effect.unsafe.implicits.global
 
 class KVSpec extends AnyFlatSpec with Matchers with WireMockSupport {
   val log: Logger = LoggerFactory.getLogger(getClass)
@@ -56,7 +58,6 @@ class KVSpec extends AnyFlatSpec with Matchers with WireMockSupport {
   "KV provider" should "create, update and read a new token from vault KV engine (uses Docker Vault)" in {
     implicit val executionContext: ExecutionContext =
       scala.concurrent.ExecutionContext.global
-    implicit val timer: Timer[IO] = cats.effect.IO.timer(executionContext)
 
     val config =
       VaultConfig("http://0.0.0.0:8200/v1", "vault-plaintext-root-token")

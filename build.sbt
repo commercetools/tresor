@@ -30,10 +30,9 @@ val circeDeps = Seq(
 libraryDependencies ++= circeDeps.map(_ % Provided)
 
 libraryDependencies ++= Seq(
-  "org.typelevel" %% "cats-effect" % "2.5.1" % Provided,
-  "com.softwaremill.sttp.client3" %% "core" % "3.3.6",
+  "org.typelevel" %% "cats-effect" % "3.2.9" % Provided,
+  "com.softwaremill.sttp.client3" %% "core" % "3.3.15",
   "org.slf4j" % "slf4j-api" % "1.7.25" % Provided,
-
   "org.scalatest" %% "scalatest" % "3.2.9" % Test,
   "org.apache.logging.log4j" % "log4j-api" % "2.14.1" % Test,
   "org.apache.logging.log4j" % "log4j" % "2.14.1" % Test,

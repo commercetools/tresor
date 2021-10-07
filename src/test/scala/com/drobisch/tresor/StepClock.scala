@@ -1,9 +1,10 @@
 package com.drobisch.tresor
 
-import cats.effect.{Clock, IO}
-import cats.effect.concurrent.Ref
+import cats.Applicative
+import cats.effect.{Clock, IO, Ref}
 
-import scala.concurrent.duration.TimeUnit
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
 
 /** A simple clock which increases its time on every access of the realtime by
   * the given step size
@@ -17,12 +18,14 @@ final case class StepClock(startTime: Long, stepSize: Int = 1)
     extends Clock[IO] {
   val timeRef: Ref[IO, Long] = Ref.unsafe(startTime)
 
-  override def realTime(unit: TimeUnit): IO[Long] = for {
+  override def realTime: IO[FiniteDuration] = for {
     time <- timeRef.get
     next <- IO.pure(time + stepSize)
     _ <- timeRef.set(next)
-  } yield time
+  } yield FiniteDuration(time, TimeUnit.SECONDS)
 
-  override def monotonic(unit: TimeUnit): IO[Long] =
+  override def monotonic: IO[FiniteDuration] =
     IO.raiseError(new UnsupportedOperationException("only supports realtime"))
+
+  override def applicative: Applicative[IO] = Applicative[IO]
 }

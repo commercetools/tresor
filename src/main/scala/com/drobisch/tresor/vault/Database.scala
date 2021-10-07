@@ -14,8 +14,10 @@ final case class DatabaseContext(role: String)
   * @tparam F
   *   context type to use
   */
-class Database[F[_]](val path: String)(implicit sync: Sync[F], clock: Clock[F])
-    extends SecretEngineProvider[F, (DatabaseContext, VaultConfig), Json] {
+class Database[F[_]](val path: String)(implicit
+    val sync: Sync[F],
+    val clock: Clock[F]
+) extends SecretEngineProvider[F, (DatabaseContext, VaultConfig), Json] {
 
   /** read the credentials for a DB role
     *
@@ -42,5 +44,5 @@ class Database[F[_]](val path: String)(implicit sync: Sync[F], clock: Clock[F])
 
 object Database {
   def apply[F[_]](path: String)(implicit sync: Sync[F], clock: Clock[F]) =
-    new Database[F](path)
+    new Database[F](path)(sync, clock)
 }
