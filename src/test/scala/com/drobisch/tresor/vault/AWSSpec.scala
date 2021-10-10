@@ -5,14 +5,15 @@ import cats.data.ReaderT
 import java.util.concurrent.TimeUnit
 import io.circe.generic.auto._
 import io.circe.syntax._
-import cats.effect.IO
-import cats.effect.concurrent.Ref
+import cats.effect.{IO, Ref}
 import com.drobisch.tresor.{StepClock, WireMockSupport}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sttp.capabilities
 import sttp.client3._
 import sttp.client3.testing.SttpBackendStub
+
+import cats.effect.unsafe.implicits.global
 
 class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
@@ -153,7 +154,7 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
     def leaseDTO(prefix: String) =
       LeaseDTO(
-        Some(prefix + clock.realTime(TimeUnit.SECONDS).unsafeRunSync()),
+        Some(prefix + clock.realTime.map(_.toSeconds).unsafeRunSync()),
         true,
         Some(60),
         None

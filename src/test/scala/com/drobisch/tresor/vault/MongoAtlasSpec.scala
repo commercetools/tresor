@@ -1,8 +1,7 @@
 package com.drobisch.tresor.vault
 
 import cats.data.ReaderT
-import cats.effect.{Clock, IO}
-import cats.effect.concurrent.Ref
+import cats.effect.{Clock, IO, Ref}
 import com.drobisch.tresor.StepClock
 import org.scalatest.Ignore
 import org.scalatest.flatspec.AnyFlatSpec
@@ -10,6 +9,7 @@ import org.scalatest.matchers.should.Matchers
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.DurationInt
+import cats.effect.unsafe.implicits.global
 
 /** Atlas would need an account and elaborate setup these tests act as
   * documentation and setup for local development
@@ -51,8 +51,6 @@ class MongoAtlasSpec extends AnyFlatSpec with Matchers {
 
   it should "refresh the lease" in {
     implicit val clock = StepClock(1)
-    implicit val timer =
-      cats.effect.IO.timer(scala.concurrent.ExecutionContext.global)
 
     val atlasEngine = Database[IO]("database/atlas")
 
@@ -82,9 +80,7 @@ class MongoAtlasSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "auto refresh" in {
-    implicit val clock = Clock.create[IO]
-    implicit val timer =
-      cats.effect.IO.timer(scala.concurrent.ExecutionContext.global)
+    implicit val clock = Clock[IO]
 
     val atlasEngine = Database[IO]("database/atlas")
 

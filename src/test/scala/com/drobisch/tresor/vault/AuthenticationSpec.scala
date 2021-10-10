@@ -10,6 +10,8 @@ import com.github.tomakehurst.wiremock.client.WireMock.{
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import cats.effect.unsafe.implicits.global
+
 class AuthenticationSpec
     extends AnyFlatSpec
     with Matchers

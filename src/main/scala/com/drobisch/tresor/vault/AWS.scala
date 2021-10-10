@@ -19,8 +19,10 @@ final case class AwsContext(
   * @tparam F
   *   effect type to use
   */
-class AWS[F[_]](val path: String)(implicit sync: Sync[F], clock: Clock[F])
-    extends SecretEngineProvider[F, (AwsContext, VaultConfig), Nothing] {
+class AWS[F[_]](val path: String)(implicit
+    val sync: Sync[F],
+    val clock: Clock[F]
+) extends SecretEngineProvider[F, (AwsContext, VaultConfig), Nothing] {
 
   /** create a aws engine credential
     *
@@ -61,5 +63,5 @@ class AWS[F[_]](val path: String)(implicit sync: Sync[F], clock: Clock[F])
 
 object AWS {
   def apply[F[_]](path: String)(implicit sync: Sync[F], clock: Clock[F]) =
-    new AWS[F](path)
+    new AWS[F](path)(sync, clock)
 }

@@ -1,6 +1,6 @@
 package com.drobisch.tresor.vault
 
-import cats.effect.IO
+import cats.effect.{Clock, IO, Sync}
 import com.drobisch.tresor.{StepClock, WireMockSupport}
 import com.github.tomakehurst.wiremock.client.WireMock.{
   aResponse,
@@ -10,6 +10,8 @@ import com.github.tomakehurst.wiremock.client.WireMock.{
 }
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import cats.effect.unsafe.implicits.global
 
 class DatabaseSpec extends AnyFlatSpec with Matchers with WireMockSupport {
   "Database provider" should "read credentials" in {

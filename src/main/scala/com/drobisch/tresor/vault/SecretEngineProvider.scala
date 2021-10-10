@@ -1,8 +1,7 @@
 package com.drobisch.tresor.vault
 
 import cats.data.ReaderT
-import cats.effect.concurrent.Ref
-import cats.effect.{Clock, Sync, Timer}
+import cats.effect.{Async, Clock, Ref, Sync}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -23,11 +22,11 @@ private[vault] final case class LeaseDTO(
     data: Option[Map[String, Option[String]]]
 )
 
-abstract class SecretEngineProvider[Effect[_], ProviderContext, Config](implicit
-    sync: Sync[Effect],
-    clock: Clock[Effect]
-) extends Provider[Effect, ProviderContext, Lease]
+trait SecretEngineProvider[Effect[_], ProviderContext, Config]
+    extends Provider[Effect, ProviderContext, Lease]
     with HttpSupport {
+  implicit def sync: Sync[Effect]
+  implicit def clock: Clock[Effect]
   protected val log = LoggerFactory.getLogger(getClass)
 
   /** the path at which this engine is mounted
@@ -74,7 +73,7 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext, Config](implicit
   ): ReaderT[Effect, VaultConfig, Lease] = lease.leaseId
     .map { leaseId =>
       for {
-        now <- ReaderT.liftF(clock.realTime(TimeUnit.SECONDS))
+        now <- ReaderT.liftF(clock.realTime.map(_.toSeconds))
         response <- ReaderT[Effect, VaultConfig, Response[
           Either[String, String]
         ]] { vaultConfig =>
@@ -146,7 +145,7 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext, Config](implicit
         )
   ): ReaderT[Effect, VaultConfig, Lease] = {
     for {
-      now <- ReaderT.liftF(clock.realTime(TimeUnit.SECONDS))
+      now <- ReaderT.liftF(clock.realTime.map(_.toSeconds))
       currentLease <- ReaderT.liftF(leaseRef.get)
       valid <- {
         currentLease match {
@@ -178,7 +177,7 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext, Config](implicit
   def autoRefresh(
       refresh: ReaderT[Effect, VaultConfig, Lease],
       every: FiniteDuration
-  )(implicit timer: Timer[Effect]): ReaderT[Effect, VaultConfig, Unit] = for {
+  )(implicit timer: Async[Effect]): ReaderT[Effect, VaultConfig, Unit] = for {
     _ <- ReaderT.liftF(sync.delay(log.debug(s"auto refreshing every $every")))
     currentLease <- refresh
     _ <- ReaderT.liftF(
@@ -192,7 +191,7 @@ abstract class SecretEngineProvider[Effect[_], ProviderContext, Config](implicit
       response: Response[Either[String, String]]
   ): Effect[Lease] = {
     for {
-      now <- clock.realTime(TimeUnit.SECONDS)
+      now <- clock.realTime.map(_.toSeconds)
       body <- sync.fromEither(response.body.left.map(new RuntimeException(_)))
     } yield {
       val lease = fromDto(io.circe.parser.decode[LeaseDTO](body).right.get, now)
