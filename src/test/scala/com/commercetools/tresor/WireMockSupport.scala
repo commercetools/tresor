@@ -1,4 +1,4 @@
-package com.drobisch.tresor
+package com.commercetools.tresor
 
 import cats.effect.IO
 import com.github.tomakehurst.wiremock.WireMockServer

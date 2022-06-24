@@ -1,4 +1,4 @@
-package com.drobisch.tresor
+package com.commercetools.tresor
 
 import cats.effect._
 import org.scalatest.flatspec.AnyFlatSpec

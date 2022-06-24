@@ -6,7 +6,7 @@ object AWSExample {
   // #aws-example
   import cats.effect.IO
 
-  import com.drobisch.tresor.vault._
+  import com.commercetools.tresor.vault._
 
   implicit val executionContext: scala.concurrent.ExecutionContext = ???
 

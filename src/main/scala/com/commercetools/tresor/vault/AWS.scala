@@ -1,8 +1,8 @@
-package com.drobisch.tresor.vault
+package com.commercetools.tresor.vault
 
 import cats.data.ReaderT
 import cats.effect.{Clock, Sync}
-import com.drobisch.tresor.Secret
+import com.commercetools.tresor.Secret
 import sttp.client3._
 
 final case class AwsContext(

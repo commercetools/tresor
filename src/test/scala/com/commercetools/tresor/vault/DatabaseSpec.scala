@@ -1,7 +1,7 @@
-package com.drobisch.tresor.vault
+package com.commercetools.tresor.vault
 
 import cats.effect.{Clock, IO, Sync}
-import com.drobisch.tresor.{StepClock, WireMockSupport}
+import com.commercetools.tresor.{StepClock, WireMockSupport}
 import com.github.tomakehurst.wiremock.client.WireMock.{
   aResponse,
   equalTo,

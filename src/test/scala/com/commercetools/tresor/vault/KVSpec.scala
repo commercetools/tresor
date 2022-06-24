@@ -1,7 +1,7 @@
-package com.drobisch.tresor.vault
+package com.commercetools.tresor.vault
 
 import cats.effect.IO
-import com.drobisch.tresor.{StepClock, WireMockSupport, vault}
+import com.commercetools.tresor.{StepClock, WireMockSupport, vault}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.slf4j.{Logger, LoggerFactory}

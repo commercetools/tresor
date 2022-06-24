@@ -1,4 +1,4 @@
-package com.drobisch.tresor
+package com.commercetools.tresor
 
 import scala.language.higherKinds
 

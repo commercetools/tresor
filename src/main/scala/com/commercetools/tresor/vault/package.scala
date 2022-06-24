@@ -1,4 +1,4 @@
-package com.drobisch.tresor
+package com.commercetools.tresor
 
 /** basic types to implement secrets coming from https://www.vaultproject.io
   */

@@ -1,4 +1,4 @@
-package com.drobisch.tresor.vault
+package com.commercetools.tresor.vault
 
 import cats.data.ReaderT
 
@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 import io.circe.generic.auto._
 import io.circe.syntax._
 import cats.effect.{IO, Ref}
-import com.drobisch.tresor.{StepClock, WireMockSupport}
+import com.commercetools.tresor.{StepClock, WireMockSupport}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sttp.capabilities

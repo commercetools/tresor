@@ -4,7 +4,7 @@ object KVExample extends App {
   // #kv-example
   import cats.effect.IO
   import scala.concurrent.ExecutionContext
-  import com.drobisch.tresor.vault._
+  import com.commercetools.tresor.vault._
 
   implicit val executionContext: ExecutionContext = ???
 

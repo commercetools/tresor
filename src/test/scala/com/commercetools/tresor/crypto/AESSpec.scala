@@ -1,4 +1,4 @@
-package com.drobisch.tresor.crypto
+package com.commercetools.tresor.crypto
 
 import cats.effect.IO
 import org.scalatest.flatspec.AnyFlatSpec

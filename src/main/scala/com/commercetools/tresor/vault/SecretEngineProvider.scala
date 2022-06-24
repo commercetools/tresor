@@ -1,11 +1,11 @@
-package com.drobisch.tresor.vault
+package com.commercetools.tresor.vault
 
 import cats.data.ReaderT
 import cats.effect.{Async, Clock, Ref, Sync}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import com.drobisch.tresor.Provider
+import com.commercetools.tresor.Provider
 import io.circe.{Encoder, Json}
 import io.circe.generic.auto._
 import io.circe.syntax._
@@ -194,7 +194,8 @@ trait SecretEngineProvider[Effect[_], ProviderContext, Config]
       now <- clock.realTime.map(_.toSeconds)
       body <- sync.fromEither(response.body.left.map(new RuntimeException(_)))
     } yield {
-      val lease = fromDto(io.circe.parser.decode[LeaseDTO](body).right.get, now)
+      val lease =
+        fromDto(io.circe.parser.decode[LeaseDTO](body).toOption.get, now)
       log.debug("parsed lease: {}", lease)
       lease
     }

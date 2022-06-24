@@ -1,4 +1,4 @@
-package com.drobisch
+package com.commercetools
 
 package object tresor {
 

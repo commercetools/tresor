@@ -1,9 +1,9 @@
-package com.drobisch.tresor.vault
+package com.commercetools.tresor.vault
 
 import sttp.client3._
 import io.circe.syntax._
 import cats.effect.{Clock, Sync}
-import com.drobisch.tresor.Secret
+import com.commercetools.tresor.Secret
 
 final case class KeyValueContext(key: String)
 

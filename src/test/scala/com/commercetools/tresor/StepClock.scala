@@ -1,4 +1,4 @@
-package com.drobisch.tresor
+package com.commercetools.tresor
 
 import cats.Applicative
 import cats.effect.{Clock, IO, Ref}

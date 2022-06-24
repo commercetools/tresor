@@ -1,7 +1,7 @@
-package com.drobisch.tresor.vault
+package com.commercetools.tresor.vault
 
 import cats.effect.IO
-import com.drobisch.tresor.WireMockSupport
+import com.commercetools.tresor.WireMockSupport
 import com.github.tomakehurst.wiremock.client.WireMock.{
   aResponse,
   post,

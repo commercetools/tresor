@@ -1,7 +1,7 @@
-package com.drobisch.tresor.vault
+package com.commercetools.tresor.vault
 
 import cats.effect.{Clock, Sync}
-import com.drobisch.tresor.Secret
+import com.commercetools.tresor.Secret
 import io.circe.Json
 import sttp.client3._
 

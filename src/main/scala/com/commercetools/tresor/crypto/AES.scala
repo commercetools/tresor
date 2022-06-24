@@ -1,7 +1,7 @@
-package com.drobisch.tresor.crypto
+package com.commercetools.tresor.crypto
 
 import cats.effect.Sync
-import com.drobisch.tresor.{Provider, Secret}
+import com.commercetools.tresor.{Provider, Secret}
 import javax.crypto.spec.{IvParameterSpec, PBEKeySpec, SecretKeySpec}
 import javax.crypto.{Cipher, SecretKeyFactory}
 

@@ -1,4 +1,4 @@
-package com.drobisch.tresor.vault
+package com.commercetools.tresor.vault
 
 import cats.effect.Sync
 import cats.implicits._

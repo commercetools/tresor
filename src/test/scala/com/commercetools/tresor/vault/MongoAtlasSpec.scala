@@ -1,8 +1,8 @@
-package com.drobisch.tresor.vault
+package com.commercetools.tresor.vault
 
 import cats.data.ReaderT
 import cats.effect.{Clock, IO, Ref}
-import com.drobisch.tresor.StepClock
+import com.commercetools.tresor.StepClock
 import org.scalatest.Ignore
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

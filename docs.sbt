@@ -6,4 +6,4 @@ makeSite / mappings ++= Seq(
   file("LICENSE") -> "LICENSE"
 )
 
-git.remoteRepo := "git@github.com:adrobisch/tresor.git"
+git.remoteRepo := "git@github.com:commercetools/tresor.git"
