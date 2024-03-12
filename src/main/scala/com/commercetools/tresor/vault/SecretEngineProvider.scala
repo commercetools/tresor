@@ -1,38 +1,39 @@
 package com.commercetools.tresor.vault
 
+import cats.MonadError
 import cats.data.ReaderT
 import cats.effect.{Async, Clock, Ref, Sync}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.commercetools.tresor.Provider
-import io.circe.{Encoder, Json}
+import io.circe.{Decoder, Encoder, Json}
 import io.circe.generic.auto._
 import io.circe.syntax._
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 import sttp.client3._
 
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 private[vault] final case class LeaseDTO(
     lease_id: Option[String],
     renewable: Boolean,
     lease_duration: Option[Long],
-    data: Option[Map[String, Option[String]]]
+    data: Option[Json]
 )
 
 trait SecretEngineProvider[Effect[_], ProviderContext, Config]
     extends Provider[Effect, ProviderContext, Lease]
     with HttpSupport {
   implicit def sync: Sync[Effect]
+  implicit def monadError: MonadError[Effect, Throwable]
   implicit def clock: Clock[Effect]
-  protected val log = LoggerFactory.getLogger(getClass)
+  protected val log: Logger = LoggerFactory.getLogger(getClass)
 
   /** the path at which this engine is mounted
     * @return
     */
-  def path: String
+  def mountPath: String
 
   /** write a config for this engine path
     * @param config
@@ -44,7 +45,7 @@ trait SecretEngineProvider[Effect[_], ProviderContext, Config]
       ReaderT[Effect, VaultConfig, Response[Either[String, String]]] {
         vaultConfig =>
           val request = basicRequest
-            .post(uri"${vaultConfig.apiUrl}/$path/config/$name")
+            .post(uri"${vaultConfig.apiUrl}/$mountPath/config/$name")
             .body(config.asJson.noSpaces)
             .header("X-Vault-Token", vaultConfig.token)
             .send(backend)
@@ -116,9 +117,12 @@ trait SecretEngineProvider[Effect[_], ProviderContext, Config]
     *
     * This is not a continuous refresh, the flow is:
     *
-    *   1. if lease is not renewable: create a new lease 2. if its not expired
-    *      but the current time is greater then issue time * refresh ratio:
-    *      refresh the current lease 3. return the current lease otherwise
+    * A. if lease is not renewable: create a new lease
+    *
+    * B. if its not expired but the current time is greater then issue time *
+    * refresh ratio: refresh the current lease
+    *
+    * C. return the current lease otherwise
     *
     * @param leaseRef
     *   a reference to the current (maybe empty) lease
@@ -193,11 +197,11 @@ trait SecretEngineProvider[Effect[_], ProviderContext, Config]
     for {
       now <- clock.realTime.map(_.toSeconds)
       body <- sync.fromEither(response.body.left.map(new RuntimeException(_)))
+      parsed <- monadError.fromEither(io.circe.parser.decode[LeaseDTO](body))
     } yield {
-      val lease =
-        fromDto(io.circe.parser.decode[LeaseDTO](body).toOption.get, now)
-      log.debug("parsed lease: {}", lease)
-      lease
+      val withTime = fromDto(parsed, now)
+      log.debug("lease: {}", withTime)
+      withTime
     }
   }
 
@@ -209,13 +213,21 @@ trait SecretEngineProvider[Effect[_], ProviderContext, Config]
     } yield ()
   }
 
-  protected def fromDto(dto: LeaseDTO, now: Long): Lease = {
+  protected def parseBody[T: Decoder](
+      response: Response[Either[String, String]]
+  ): Effect[T] = {
+    for {
+      body <- sync.fromEither(response.body.left.map(new RuntimeException(_)))
+      parsed <- sync.fromEither(io.circe.parser.decode[T](body))
+    } yield parsed
+  }
+
+  private def fromDto(dto: LeaseDTO, now: Long): Lease =
     Lease(
       leaseId = dto.lease_id,
-      data = dto.data.getOrElse(Map.empty),
+      data = dto.data,
       renewable = dto.renewable,
       leaseDuration = dto.lease_duration,
       creationTime = now
     )
-  }
 }

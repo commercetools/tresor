@@ -1,8 +1,8 @@
 package com.commercetools.tresor.vault
 
+import cats.MonadError
 import cats.data.ReaderT
 import cats.effect.{Clock, Sync}
-import com.commercetools.tresor.Secret
 import sttp.client3._
 
 final case class AwsContext(
@@ -19,9 +19,10 @@ final case class AwsContext(
   * @tparam F
   *   effect type to use
   */
-class AWS[F[_]](val path: String)(implicit
+class AWS[F[_]](val mountPath: String)(implicit
     val sync: Sync[F],
-    val clock: Clock[F]
+    val clock: Clock[F],
+    val monadError: MonadError[F, Throwable]
 ) extends SecretEngineProvider[F, (AwsContext, VaultConfig), Nothing] {
 
   /** create a aws engine credential
@@ -42,7 +43,7 @@ class AWS[F[_]](val path: String)(implicit
       val stsOrCreds = if (awsContext.useSts) "sts" else "creds"
 
       val requestUri =
-        s"${vaultConfig.apiUrl}/$path/$stsOrCreds/${awsContext.name}?$roleArnPart$ttlPart"
+        s"${vaultConfig.apiUrl}/$mountPath/$stsOrCreds/${awsContext.name}?$roleArnPart$ttlPart"
 
       basicRequest
         .get(uri"$requestUri")
@@ -56,12 +57,18 @@ class AWS[F[_]](val path: String)(implicit
 
   override def secret(
       secretContext: (AwsContext, VaultConfig)
-  )(implicit secret: Secret[Lease]): F[Lease] = secretContext match {
+  ): F[Lease] = secretContext match {
     case (awsContext, vaultConfig) => createCredentials(awsContext)(vaultConfig)
   }
 }
 
 object AWS {
-  def apply[F[_]](path: String)(implicit sync: Sync[F], clock: Clock[F]) =
-    new AWS[F](path)(sync, clock)
+  def apply[F[_]](
+      path: String
+  )(implicit
+      sync: Sync[F],
+      clock: Clock[F],
+      monadError: MonadError[F, Throwable]
+  ) =
+    new AWS[F](path)(sync, clock, monadError)
 }

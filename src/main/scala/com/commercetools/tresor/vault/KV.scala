@@ -1,23 +1,24 @@
 package com.commercetools.tresor.vault
 
+import cats.MonadError
 import sttp.client3._
 import io.circe.syntax._
 import cats.effect.{Clock, Sync}
-import com.commercetools.tresor.Secret
 
-final case class KeyValueContext(key: String)
+final case class KVContext(secretPath: String)
 
 /** implementation of the vault KV v1 engine API
   *
-  * https://www.vaultproject.io/api/secret/kv/kv-v1.html
+  * https://developer.hashicorp.com/vault/api-docs/secret/kv/kv-v1
   *
   * @tparam F
   *   effect type to use
   */
-class KV[F[_]](val path: String)(implicit
+class KV[F[_]](val mountPath: String)(implicit
     val sync: Sync[F],
-    val clock: Clock[F]
-) extends SecretEngineProvider[F, (KeyValueContext, VaultConfig), Nothing] {
+    val clock: Clock[F],
+    val monadError: MonadError[F, Throwable]
+) extends SecretEngineProvider[F, (KVContext, VaultConfig), Nothing] {
 
   /** read the secret from a path
     *
@@ -27,12 +28,12 @@ class KV[F[_]](val path: String)(implicit
     *   non-renewable vault lease
     */
   def secret(
-      context: (KeyValueContext, VaultConfig)
-  )(implicit secret: Secret[Lease]): F[Lease] = {
+      context: (KVContext, VaultConfig)
+  ): F[Lease] = {
     val (kv, vaultConfig) = context
 
     val response = basicRequest
-      .get(uri"${vaultConfig.apiUrl}/$path/${kv.key}")
+      .get(uri"${vaultConfig.apiUrl}/$mountPath/${kv.secretPath}")
       .header("X-Vault-Token", vaultConfig.token)
       .send(backend)
 
@@ -48,14 +49,14 @@ class KV[F[_]](val path: String)(implicit
     * @param data
     *   the data to be stored
     */
-  def createSecret(
-      context: (KeyValueContext, VaultConfig),
+  def createOrUpdate(
+      context: (KVContext, VaultConfig),
       data: Map[String, Option[String]]
-  )(implicit secret: Secret[Lease]): F[Unit] = {
+  ): F[Unit] = {
     val (kv, vaultConfig) = context
 
     val response = basicRequest
-      .post(uri"${vaultConfig.apiUrl}/$path/${kv.key}")
+      .post(uri"${vaultConfig.apiUrl}/$mountPath/${kv.secretPath}")
       .body(data.asJson.noSpaces)
       .header("X-Vault-Token", vaultConfig.token)
       .send(backend)
@@ -67,6 +68,10 @@ class KV[F[_]](val path: String)(implicit
 }
 
 object KV {
-  def apply[F[_]](path: String)(implicit sync: Sync[F], clock: Clock[F]) =
-    new KV[F](path)(sync, clock)
+  def apply[F[_]](mountPath: String)(implicit
+      sync: Sync[F],
+      clock: Clock[F],
+      monadError: MonadError[F, Throwable]
+  ) =
+    new KV[F](mountPath)(sync, clock, monadError)
 }

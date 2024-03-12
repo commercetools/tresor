@@ -2,6 +2,7 @@ package com.commercetools.tresor.crypto
 
 import cats.effect.Sync
 import com.commercetools.tresor.{Provider, Secret}
+
 import javax.crypto.spec.{IvParameterSpec, PBEKeySpec, SecretKeySpec}
 import javax.crypto.{Cipher, SecretKeyFactory}
 
@@ -26,9 +27,9 @@ final case class EncryptedSecret(
   */
 class AES[F[_]](implicit sync: Sync[F])
     extends Provider[F, AESContext, EncryptedSecret] {
-  override def secret(context: AESContext)(implicit
-      secret: Secret[EncryptedSecret]
-  ): F[EncryptedSecret] = encrypt(context)
+  override def secret(context: AESContext): F[EncryptedSecret] = encrypt(
+    context
+  )
 
   def encrypt(aes: AESContext): F[EncryptedSecret] = sync.delay {
     val secretKey = createSecretKey(aes.password, aes.salt)
@@ -67,11 +68,11 @@ class AES[F[_]](implicit sync: Sync[F])
 
 object AES {
 
-  implicit object AESSecret extends Secret[EncryptedSecret] {
+  implicit object AESSecret extends Secret[EncryptedSecret, Nothing] {
     override def id(secret: EncryptedSecret): Option[String] = None
     override def data(
         secret: EncryptedSecret
-    ): Option[Map[String, Option[String]]] = None
+    ): Option[Nothing] = None
     override def renewable(secret: EncryptedSecret): Boolean = false
     override def validDuration(secret: EncryptedSecret): Option[Long] = None
     override def creationTime(secret: EncryptedSecret): Option[Long] = None

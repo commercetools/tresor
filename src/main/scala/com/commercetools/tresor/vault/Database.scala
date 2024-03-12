@@ -1,7 +1,7 @@
 package com.commercetools.tresor.vault
 
+import cats.MonadError
 import cats.effect.{Clock, Sync}
-import com.commercetools.tresor.Secret
 import io.circe.Json
 import sttp.client3._
 
@@ -14,9 +14,10 @@ final case class DatabaseContext(role: String)
   * @tparam F
   *   context type to use
   */
-class Database[F[_]](val path: String)(implicit
+class Database[F[_]](val mountPath: String)(implicit
     val sync: Sync[F],
-    val clock: Clock[F]
+    val clock: Clock[F],
+    val monadError: MonadError[F, Throwable]
 ) extends SecretEngineProvider[F, (DatabaseContext, VaultConfig), Json] {
 
   /** read the credentials for a DB role
@@ -28,11 +29,11 @@ class Database[F[_]](val path: String)(implicit
     */
   override def secret(
       context: (DatabaseContext, VaultConfig)
-  )(implicit secret: Secret[Lease]): F[Lease] = {
+  ): F[Lease] = {
     val (db, vaultConfig) = context
 
     val response = basicRequest
-      .get(uri"${vaultConfig.apiUrl}/$path/creds/${db.role}")
+      .get(uri"${vaultConfig.apiUrl}/$mountPath/creds/${db.role}")
       .header("X-Vault-Token", vaultConfig.token)
       .send(backend)
 
@@ -43,6 +44,10 @@ class Database[F[_]](val path: String)(implicit
 }
 
 object Database {
-  def apply[F[_]](path: String)(implicit sync: Sync[F], clock: Clock[F]) =
-    new Database[F](path)(sync, clock)
+  def apply[F[_]](path: String)(implicit
+      sync: Sync[F],
+      clock: Clock[F],
+      monadError: MonadError[F, Throwable]
+  ) =
+    new Database[F](path)(sync, clock, monadError)
 }

@@ -9,7 +9,8 @@ package object tresor {
     */
   final case class DefaultSecret(data: Map[String, Option[String]])
 
-  implicit object DefaultSecret extends Secret[DefaultSecret] {
+  implicit object DefaultSecret
+      extends Secret[DefaultSecret, Map[String, Option[String]]] {
     override def id(secret: DefaultSecret): Option[String] = None
     override def data(
         secret: DefaultSecret

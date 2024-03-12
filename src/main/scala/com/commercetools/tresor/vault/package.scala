@@ -1,5 +1,7 @@
 package com.commercetools.tresor
 
+import io.circe.{Decoder, Json}
+
 /** basic types to implement secrets coming from https://www.vaultproject.io
   */
 package object vault {
@@ -24,24 +26,18 @@ package object vault {
     */
   final case class Lease(
       leaseId: Option[String],
-      data: Map[String, Option[String]],
+      data: Option[Json],
       renewable: Boolean,
       leaseDuration: Option[Long],
       creationTime: Long,
       lastRenewalTime: Option[Long] = None
   ) {
     def totalLeaseDuration(now: Long): Long = now - creationTime
-  }
 
-  implicit object VaultSecretLease extends Secret[Lease] {
-    override def data(secret: Lease): Option[Map[String, Option[String]]] =
-      Some(secret.data)
-    override def id(secret: Lease): Option[String] = secret.leaseId
-    override def renewable(secret: Lease): Boolean = secret.renewable
-    override def validDuration(secret: Lease): Option[Long] =
-      secret.leaseDuration
-    override def creationTime(secret: Lease): Option[Long] = Some(
-      secret.creationTime
-    )
+    def as[Data: Decoder]: Either[Throwable, Data] =
+      data match {
+        case Some(data) => data.as[Data]
+        case None       => Left(new NoSuchElementException("no data"))
+      }
   }
 }

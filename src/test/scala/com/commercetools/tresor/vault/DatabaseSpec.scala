@@ -1,6 +1,7 @@
 package com.commercetools.tresor.vault
 
-import cats.effect.{Clock, IO, Sync}
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 import com.commercetools.tresor.{StepClock, WireMockSupport}
 import com.github.tomakehurst.wiremock.client.WireMock.{
   aResponse,
@@ -8,10 +9,9 @@ import com.github.tomakehurst.wiremock.client.WireMock.{
   get,
   urlEqualTo
 }
+import io.circe.syntax.EncoderOps
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
-import cats.effect.unsafe.implicits.global
 
 class DatabaseSpec extends AnyFlatSpec with Matchers with WireMockSupport {
   "Database provider" should "read credentials" in {
@@ -45,7 +45,9 @@ class DatabaseSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
     val expectedLease = Lease(
       leaseId = Some("database/creds/role/1"),
-      data = Map("username" -> Some("theuser"), "password" -> Some("thepw")),
+      data = Some(
+        Map("username" -> Some("theuser"), "password" -> Some("thepw")).asJson
+      ),
       renewable = true,
       leaseDuration = Some(3600),
       1

@@ -10,10 +10,9 @@ class TresorSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
   class TestProvider[F[_]](implicit sync: Sync[F])
       extends Provider[F, TestContext, DefaultSecret] {
-    def secret(providerContext: TestContext)(implicit
-        secret: Secret[DefaultSecret]
-    ): F[DefaultSecret] =
-      sync.pure(DefaultSecret(providerContext.data))
+    override def secret(context: TestContext): F[DefaultSecret] =
+      sync.pure(DefaultSecret(context.data))
+
   }
 
   "Tresor" should "get secret from test provider" in {

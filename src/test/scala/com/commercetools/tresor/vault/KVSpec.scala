@@ -6,11 +6,11 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.concurrent.ExecutionContext
 import scala.util.Random
 import sttp.client3._
-
 import cats.effect.unsafe.implicits.global
+import io.circe.Json
+import io.circe.syntax.EncoderOps
 
 class KVSpec extends AnyFlatSpec with Matchers with WireMockSupport {
   val log: Logger = LoggerFactory.getLogger(getClass)
@@ -40,14 +40,14 @@ class KVSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
         vault
           .KV[IO]("secret")
-          .secret(KeyValueContext(key = "treasure"), vaultConfig)
+          .secret(KVContext(secretPath = "treasure"), vaultConfig)
       }
     ).unsafeRunSync()
 
     result should be(
       Lease(
         leaseId = Some(""),
-        data = Map("key" -> Some("value")),
+        data = Some(Map("key" -> Some("value")).asJson),
         renewable = false,
         leaseDuration = Some(43200),
         1
@@ -77,20 +77,20 @@ class KVSpec extends AnyFlatSpec with Matchers with WireMockSupport {
     val secretName = Random.alphanumeric.take(10).mkString
 
     def createKvSecret: IO[Unit] =
-      KV[cats.effect.IO]("secret-v1").createSecret(
-        (KeyValueContext(key = secretName), config),
+      KV[cats.effect.IO]("secret-v1").createOrUpdate(
+        (KVContext(secretPath = secretName), config),
         Map("foo" -> Some("bar"))
       )
 
     def updateKvSecret: IO[Unit] =
-      KV[cats.effect.IO]("secret-v1").createSecret(
-        (KeyValueContext(key = secretName), config),
+      KV[cats.effect.IO]("secret-v1").createOrUpdate(
+        (KVContext(secretPath = secretName), config),
         Map("foo" -> Some("baz"))
       )
 
     def kvSecret: IO[Lease] =
       KV[cats.effect.IO]("secret-v1")
-        .secret(KeyValueContext(key = secretName), config)
+        .secret(KVContext(secretPath = secretName), config)
 
     val (secret1, secret2) = (for {
       _ <- createKvSecret
@@ -100,10 +100,10 @@ class KVSpec extends AnyFlatSpec with Matchers with WireMockSupport {
     } yield (secret1, secret2)).unsafeRunSync()
 
     secret1.data should be(
-      Map("foo" -> Some("bar"))
+      Some(Json.obj("foo" -> "bar".asJson))
     )
     secret2.data should be(
-      Map("foo" -> Some("baz"))
+      Some(Json.obj("foo" -> "baz".asJson))
     )
   }
 }

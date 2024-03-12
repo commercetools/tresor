@@ -2,7 +2,7 @@
 
 ## Using the Vault Key Value Engine 
 
-The KV engine in vault lets you store arbitrary secrets in a JSON-object like manner.
+The KV (version 2) engine in vault lets you store arbitrary versioned secrets in a JSON-object like manner.
 This will create non-refreshable (as in *always valid*) leases:
 
 @@snip [KVExample.scala](../../test/scala/examples/KVExample.scala){#kv-example}

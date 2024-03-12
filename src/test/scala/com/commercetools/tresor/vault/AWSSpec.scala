@@ -46,10 +46,12 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
     val expectedLease = Lease(
       leaseId = Some("aws/creds/some-role/abcd-123456"),
-      data = Map(
-        "access_key" -> Some("key"),
-        "secret_key" -> Some("secret"),
-        "security_token" -> None
+      data = Some(
+        Map(
+          "access_key" -> Some("key"),
+          "secret_key" -> Some("secret"),
+          "security_token" -> None
+        ).asJson
       ),
       renewable = true,
       leaseDuration = Some(43200),
@@ -84,7 +86,7 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
       .unsafeRunSync() should be(
       Lease(
         leaseId = Some("sts-lease"),
-        data = Map(),
+        data = None,
         renewable = true,
         leaseDuration = Some(60),
         1
@@ -117,7 +119,7 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
         val existingLease = Lease(
           leaseId = Some(""),
           renewable = true,
-          data = Map("foo" -> Some("bar")),
+          data = Some(Map("foo" -> Some("bar")).asJson),
           leaseDuration = Some(60),
           creationTime = 1
         )
@@ -129,7 +131,7 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
     val expectedLease = Lease(
       leaseId = Some("aws/creds/some-role/abcd-123456"),
-      data = Map("foo" -> Some("bar")),
+      data = Some(Map("foo" -> Some("bar")).asJson),
       renewable = true,
       leaseDuration = Some(60),
       creationTime = 1,
@@ -146,7 +148,7 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
     val aLease = Lease(
       leaseId = Some("init"),
-      data = Map.empty,
+      data = None,
       renewable = true,
       leaseDuration = Some(60),
       creationTime = 0
@@ -189,7 +191,7 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
     leaseWithRefresh.unsafeRunSync() should be(
       Lease(
         Some("init"),
-        Map(),
+        None,
         renewable = true,
         Some(60),
         lastRenewalTime = None,
@@ -201,7 +203,7 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
 
     val firstRenewed = Lease(
       Some("renew62"),
-      Map(),
+      None,
       renewable = true,
       leaseDuration = Some(60),
       creationTime = 0,
@@ -216,7 +218,7 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
     leaseWithRefresh.unsafeRunSync() should be(
       Lease(
         Some("renew95"),
-        Map(),
+        None,
         renewable = true,
         leaseDuration = Some(60),
         creationTime = 0,
