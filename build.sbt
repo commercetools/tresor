@@ -2,7 +2,7 @@ import sbt.url
 
 name := "tresor"
 
-scalaVersion := "2.13.8"
+scalaVersion := "2.13.13"
 
 scalacOptions ++= Seq(
   "-encoding",
@@ -40,7 +40,7 @@ inThisBuild(
   )
 )
 
-val circeVersion = "0.14.2"
+val circeVersion = "0.14.6"
 
 val circeDeps = Seq(
   "io.circe" %% "circe-core",
@@ -49,12 +49,12 @@ val circeDeps = Seq(
 ).map(_ % circeVersion)
 
 libraryDependencies ++= circeDeps ++ Seq(
-  "org.typelevel" %% "cats-effect" % "3.3.12",
-  "com.softwaremill.sttp.client3" %% "core" % "3.6.2",
-  "org.slf4j" % "slf4j-api" % "1.7.36",
-  "org.scalatest" %% "scalatest" % "3.2.12" % Test,
-  "org.apache.logging.log4j" % "log4j-api" % "2.17.2" % Test,
-  "org.apache.logging.log4j" % "log4j" % "2.17.2" % Test,
-  "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.17.2" % Test,
-  "com.github.tomakehurst" % "wiremock-standalone" % "2.27.2" % Test
+  "org.typelevel" %% "cats-effect" % "3.5.4",
+  "com.softwaremill.sttp.client3" %% "core" % "3.9.4",
+  "org.slf4j" % "slf4j-api" % "2.0.12",
+  "org.scalatest" %% "scalatest" % "3.2.18" % Test,
+  "org.apache.logging.log4j" % "log4j-api" % "2.23.1" % Test,
+  "org.apache.logging.log4j" % "log4j" % "2.23.1" % Test,
+  "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.23.1" % Test,
+  "com.github.tomakehurst" % "wiremock-standalone" % "3.0.1" % Test
 )

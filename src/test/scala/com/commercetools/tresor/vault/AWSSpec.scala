@@ -2,7 +2,6 @@ package com.commercetools.tresor.vault
 
 import cats.data.ReaderT
 
-import java.util.concurrent.TimeUnit
 import io.circe.generic.auto._
 import io.circe.syntax._
 import cats.effect.{IO, Ref}
@@ -73,7 +72,8 @@ class AWSSpec extends AnyFlatSpec with Matchers with WireMockSupport {
       }
 
     val mockedAws = new AWS[IO]("aws") {
-      override protected implicit lazy val backend = http
+      override protected implicit lazy val backend
+          : SttpBackendStub[Identity, capabilities.WebSockets] = http
     }
 
     val vaultConfig =

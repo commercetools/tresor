@@ -56,9 +56,6 @@ class KVSpec extends AnyFlatSpec with Matchers with WireMockSupport {
   }
 
   "KV provider" should "create, update and read a new token from vault KV engine (uses Docker Vault)" in {
-    implicit val executionContext: ExecutionContext =
-      scala.concurrent.ExecutionContext.global
-
     val config =
       VaultConfig("http://0.0.0.0:8200/v1", "vault-plaintext-root-token")
 
