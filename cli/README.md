@@ -39,35 +39,43 @@ Options:
 ```
 # first run will create a config, add you environments there
 tresor config
-tresor env login
-tresor env token
+tresor login env
+tresor token env
 
 # eval vault env variables into current shell
-`tresor env token`
+`tresor token env`
 
 # given the example config
 # this will list kv2/repo/some_service/env/some_path/prod1
-tresor env list -s some_service -c prod1
+tresor list env prod1 -s some_service
 
 # this will get kv2/repo/some_service/env/some_path/prod1/some_path
-tresor env get -s some_service -c prod1 -p /some_path
+tresor get env prod1 -s some_service -p /some_path
 ...
 ```
 
 #### Config
 
-```json
-{
-  "defaultOwner": "my-team",
-  "mountTemplate": "kv2/repo/{{service}}",
-  "pathTemplate": "{{environment}}/some_path/{{context}}",
-  "environments": [
-    {
-      "name": "env",
-      "vaultAddress": "http://localhost:8250",
-      "contexts": ["some_context"],
-      "authMount": null
-    }
-  ]
-}
+```yaml
+defaultOwner: my-team
+mountTemplate: kv2/repo/{{service}}
+pathTemplate: "{{environment}}/some_path/{{context}}"
+environments:
+  - name: env
+    vaultAddress: http://localhost:8250
+    contexts:
+      - prod1
+    # allows to sync between values
+    mappings:
+      - source:
+          mount: kv2/repo/something
+          path: some-path
+          key: some-key
+        # or instead of source:
+        # value: some_value
+        target:
+          mount: kv2/repo/other
+          path: other-path
+          key: other-key
+        # skip: true
 ```
