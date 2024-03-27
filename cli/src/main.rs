@@ -51,6 +51,20 @@ enum Commands {
     Config,
     /// print the current token of the environment
     Token(VaultEnvArgs),
+    Sync(SyncCommandArgs),
+}
+
+#[derive(Debug, Args)]
+struct SyncCommandArgs {
+    #[command(flatten)]
+    env: VaultEnvArgs,
+
+    /// changes will only be applied if this flag is set
+    #[clap(long, env = "SYNC_APPLY", default_value_t = false)]
+    apply: bool,
+
+    #[command(flatten)]
+    metadata: MetadataArgs,
 }
 
 #[derive(Debug, Args)]
@@ -204,7 +218,7 @@ async fn main() -> Result<(), CliError> {
             let value: HashMap<String, String> = serde_json::from_slice(&data)?;
 
             let set_response = env.vault()?.set_data(&mount, &path, value).await?;
-            crate::vault::set_metadata(&config, &env, &set_args, &mount, &path).await?;
+            crate::vault::set_metadata(&config, &env, &set_args.metadata, &mount, &path).await?;
 
             println!(
                 "set response: {}",
@@ -220,12 +234,107 @@ async fn main() -> Result<(), CliError> {
             let value: HashMap<String, String> = serde_json::from_slice(&data)?;
 
             let set_response = env.vault()?.patch_data(&mount, &path, value).await?;
-            crate::vault::set_metadata(&config, &env, &patch_args, &mount, &path).await?;
+            crate::vault::set_metadata(&config, &env, &patch_args.metadata, &mount, &path).await?;
 
             println!(
                 "set response: {}",
                 serde_json::to_string_pretty(&set_response)?
             );
+            Ok(())
+        }
+        Commands::Sync(sync_args) => {
+            let env = get_env(&config, &sync_args.env.environment).await?;
+            println!(
+                "syncing environment {}, apply: {}",
+                env.name, sync_args.apply
+            );
+
+            for mapping in &env.mappings.clone().unwrap_or_default() {
+                let source_value = match (mapping.source.clone(), mapping.value.clone()) {
+                    (None, value) => value,
+                    (Some(source_ref), None) => {
+                        let read_source_values =
+                            vaultrs::kv2::read::<HashMap<String, Option<String>>>(
+                                &env.vault_client()?,
+                                &source_ref.mount,
+                                &source_ref.path,
+                            )
+                            .await;
+
+                        let source_values = read_source_values.map_err(|e| {
+                            CliError::RuntimeError(format!(
+                                "unable to read source: {source_ref:?}: {}",
+                                e
+                            ))
+                        })?;
+
+                        let source_value = source_values.get(&source_ref.key).unwrap_or(&None);
+                        source_value.clone()
+                    }
+                    _ => return Err(CliError::RuntimeError("invalid source mapping".into())),
+                };
+
+                match source_value {
+                    Some(value) => {
+                        let target = mapping.target.clone();
+
+                        let read_target_values = vaultrs::kv2::read::<HashMap<String, String>>(
+                            &env.vault_client()?,
+                            &target.mount,
+                            &target.path,
+                        )
+                        .await;
+
+                        let mut target_values = read_target_values.map_err(|e| {
+                            CliError::RuntimeError(format!(
+                                "unable to read target: {target:?}: {}",
+                                e
+                            ))
+                        })?;
+
+                        target_values.insert(mapping.target.key.clone(), value.to_string());
+
+                        if sync_args.apply {
+                            let set_response = env
+                                .vault()?
+                                .set_data(
+                                    &mapping.target.mount,
+                                    &mapping.target.path,
+                                    target_values.clone(),
+                                )
+                                .await;
+
+                            set_response.map_err(|e| {
+                                CliError::RuntimeError(format!(
+                                    "unable to set target: {target:?}: {}",
+                                    e
+                                ))
+                            })?;
+
+                            let metadata_response = crate::vault::set_metadata(
+                                &config,
+                                &env,
+                                &sync_args.metadata,
+                                &target.mount,
+                                &target.path,
+                            )
+                            .await;
+
+                            metadata_response.map_err(|e| {
+                                CliError::RuntimeError(format!(
+                                    "unable to set metadata for target: {target:?}: {}",
+                                    e
+                                ))
+                            })?;
+
+                            println!("updated {target:?}, with value: {value}")
+                        } else {
+                            println!("would update {target:?} with value: {value}")
+                        }
+                    }
+                    None => println!("no source value found for {mapping:?}"),
+                }
+            }
             Ok(())
         }
     }

@@ -20,6 +20,23 @@ pub struct EnvironmentConfig {
     pub token_valid_until: Option<u64>,
     pub contexts: Vec<String>,
     pub auth_mount: Option<String>,
+    pub mappings: Option<Vec<ValueMapping>>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ValueRef {
+    pub mount: String,
+    pub path: String,
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ValueMapping {
+    pub source: Option<ValueRef>,
+    pub value: Option<String>,
+    pub target: ValueRef,
 }
 
 impl EnvironmentConfig {

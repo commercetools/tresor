@@ -14,7 +14,7 @@ use vaultrs::{
 use crate::{
     config::{get_env, load_or_create_config, write_token, Config, EnvironmentConfig},
     error::CliError,
-    SetCommandArgs,
+    MetadataArgs,
 };
 
 static AUTH_RESPONSE: Lazy<Mutex<Option<VaultAuthResponse>>> = Lazy::new(|| Mutex::new(None));
@@ -40,7 +40,7 @@ pub struct VaultAuthResponse {
 pub struct VaultSecretResponse {
     pub lease_duration: Option<u64>,
     pub lease_id: Option<String>,
-    pub data: Option<VaultSecretMetadata>,
+    pub data: serde_json::Value,
     pub renewable: Option<bool>,
     pub request_id: Option<String>,
 }
@@ -151,8 +151,20 @@ async fn post<T: DeserializeOwned>(
         )));
     }
 
-    let result = response.json::<T>().await?;
-    Ok(result)
+    let body_string = response.text().await?;
+
+    let parsed = serde_json::from_str::<T>(&body_string);
+
+    match parsed {
+        Ok(result) => Ok(result),
+        Err(e) => {
+            println!("error parsing response: {}", body_string);
+            Err(CliError::VaultError(format!(
+                "Error parsing response: {}",
+                e.to_string()
+            )))
+        }
+    }
 }
 
 async fn patch<T: DeserializeOwned>(
@@ -180,37 +192,44 @@ async fn patch<T: DeserializeOwned>(
         )));
     }
 
-    let result = response.json::<T>().await?;
-    Ok(result)
+    let body_string = response.text().await?;
+
+    let parsed = serde_json::from_str::<T>(&body_string);
+
+    match parsed {
+        Ok(result) => Ok(result),
+        Err(e) => {
+            println!("error parsing response: {}", body_string);
+            Err(CliError::VaultError(format!(
+                "Error parsing response: {}",
+                e.to_string()
+            )))
+        }
+    }
 }
 
 pub async fn set_metadata(
     config: &Config,
     env: &EnvironmentConfig,
-    set_args: &SetCommandArgs,
+    metadata: &MetadataArgs,
     mount: &str,
     path: &str,
 ) -> Result<(), CliError> {
-    let mut metadata = SetSecretMetadataRequestBuilder::default();
+    let mut metadata_request = SetSecretMetadataRequestBuilder::default();
     let mut custom_metadata: HashMap<String, String> = HashMap::new();
 
     custom_metadata.insert(
         "owner".into(),
-        set_args
-            .metadata
+        metadata
             .metadata_owner
             .clone()
             .unwrap_or(config.default_owner.clone()),
     );
 
-    if set_args.metadata.metadata_rotation.unwrap_or(false) {
+    if metadata.metadata_rotation.unwrap_or(false) {
         custom_metadata.insert(
             "maxTTL".into(),
-            set_args
-                .metadata
-                .metadata_max_ttl
-                .clone()
-                .unwrap_or("90d".into()),
+            metadata.metadata_max_ttl.clone().unwrap_or("90d".into()),
         );
         custom_metadata.insert("mustRotate".into(), "true".into());
         custom_metadata.insert(
@@ -221,9 +240,15 @@ pub async fn set_metadata(
         println!("not setting rotation metadata (see command options)")
     }
 
-    metadata.custom_metadata(custom_metadata);
+    metadata_request.custom_metadata(custom_metadata);
 
-    vaultrs::kv2::set_metadata(&env.vault_client()?, &mount, &path, Some(&mut metadata)).await?;
+    vaultrs::kv2::set_metadata(
+        &env.vault_client()?,
+        &mount,
+        &path,
+        Some(&mut metadata_request),
+    )
+    .await?;
     Ok(())
 }
 
