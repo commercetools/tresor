@@ -2,14 +2,19 @@ use std::collections::HashMap;
 
 use actix_web::{dev::Server, get, web, App, HttpResponse, HttpServer};
 
+use chrono::Utc;
 use once_cell::sync::Lazy;
-use serde::Deserialize;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::sync::Mutex;
-use vaultrs::client::{VaultClient, VaultClientSettingsBuilder};
+use vaultrs::{
+    api::kv2::requests::SetSecretMetadataRequestBuilder,
+    client::{VaultClient, VaultClientSettingsBuilder},
+};
 
 use crate::{
     config::{get_env, load_or_create_config, write_token, Config, EnvironmentConfig},
     error::CliError,
+    SetCommandArgs,
 };
 
 static AUTH_RESPONSE: Lazy<Mutex<Option<VaultAuthResponse>>> = Lazy::new(|| Mutex::new(None));
@@ -30,6 +35,25 @@ pub struct VaultAuthResponse {
     pub auth: AuthInfo,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct VaultSecretResponse {
+    pub lease_duration: Option<u64>,
+    pub lease_id: Option<String>,
+    pub data: Option<VaultSecretMetadata>,
+    pub renewable: Option<bool>,
+    pub request_id: Option<String>,
+}
+
+#[derive(Deserialize, Clone, Debug, Serialize)]
+pub struct VaultSecretMetadata {
+    pub created_time: String,
+    pub deletion_time: String,
+    pub custom_metadata: Option<HashMap<String, String>>,
+    pub destroyed: bool,
+    pub version: u64,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct AuthInfo {
@@ -48,6 +72,159 @@ pub fn create_client(vault_url: &str, token: Option<String>) -> Result<VaultClie
 
     let client = VaultClient::new(settings.build()?)?;
     Ok(client)
+}
+
+pub struct Vault {
+    pub vault_url: String,
+    pub token: String,
+}
+
+impl Vault {
+    pub fn create(vault_url: &str, token: &str) -> Vault {
+        Vault {
+            vault_url: vault_url.to_owned(),
+            token: token.to_owned(),
+        }
+    }
+
+    pub async fn set_data(
+        &self,
+        mount: &str,
+        path: &str,
+        data: HashMap<String, String>,
+    ) -> Result<VaultSecretResponse, CliError> {
+        let path = format!("{mount}/data/{path}");
+        let result = post::<VaultSecretResponse>(
+            &self.vault_url,
+            &self.token,
+            &path,
+            serde_json::json!({ "data": data }),
+        )
+        .await?;
+
+        Ok(result)
+    }
+
+    pub async fn patch_data(
+        &self,
+        mount: &str,
+        path: &str,
+        data: HashMap<String, String>,
+    ) -> Result<VaultSecretResponse, CliError> {
+        let path = format!("{mount}/data/{path}");
+        let result = patch::<VaultSecretResponse>(
+            &self.vault_url,
+            &self.token,
+            &path,
+            serde_json::json!({ "data": data }),
+        )
+        .await?;
+
+        println!("patch data: {:?}", result);
+
+        Ok(result)
+    }
+}
+
+async fn post<T: DeserializeOwned>(
+    vault_url: &str,
+    token: &str,
+    path: &str,
+    data: serde_json::Value,
+) -> Result<T, CliError> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/v1/{}", vault_url, path);
+    let response = client
+        .post(url)
+        .header("X-Vault-Token", token)
+        .header("X-Vault-Request", true.to_string())
+        .header("Content-Type", "application/json")
+        .json(&data)
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        return Err(CliError::VaultError(format!(
+            "Vault returned an error: {}, {}",
+            response.status(),
+            response.text().await?
+        )));
+    }
+
+    let result = response.json::<T>().await?;
+    Ok(result)
+}
+
+async fn patch<T: DeserializeOwned>(
+    vault_url: &str,
+    token: &str,
+    path: &str,
+    data: serde_json::Value,
+) -> Result<T, CliError> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/v1/{}", vault_url, path);
+    let response = client
+        .patch(url)
+        .header("X-Vault-Token", token)
+        .header("X-Vault-Request", true.to_string())
+        .header("Content-Type", "application/merge-patch+json")
+        .json(&data)
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        return Err(CliError::VaultError(format!(
+            "Vault returned an error: {}, {}",
+            response.status(),
+            response.text().await?
+        )));
+    }
+
+    let result = response.json::<T>().await?;
+    Ok(result)
+}
+
+pub async fn set_metadata(
+    config: &Config,
+    env: &EnvironmentConfig,
+    set_args: &SetCommandArgs,
+    mount: &str,
+    path: &str,
+) -> Result<(), CliError> {
+    let mut metadata = SetSecretMetadataRequestBuilder::default();
+    let mut custom_metadata: HashMap<String, String> = HashMap::new();
+
+    custom_metadata.insert(
+        "owner".into(),
+        set_args
+            .metadata
+            .metadata_owner
+            .clone()
+            .unwrap_or(config.default_owner.clone()),
+    );
+
+    if set_args.metadata.metadata_rotation.unwrap_or(false) {
+        custom_metadata.insert(
+            "maxTTL".into(),
+            set_args
+                .metadata
+                .metadata_max_ttl
+                .clone()
+                .unwrap_or("90d".into()),
+        );
+        custom_metadata.insert("mustRotate".into(), "true".into());
+        custom_metadata.insert(
+            "lastRotation".into(),
+            Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
+        );
+    } else {
+        println!("not setting rotation metadata (see command options)")
+    }
+
+    metadata.custom_metadata(custom_metadata);
+
+    vaultrs::kv2::set_metadata(&env.vault_client()?, &mount, &path, Some(&mut metadata)).await?;
+    Ok(())
 }
 
 #[get("/oidc/callback")]
@@ -128,7 +305,6 @@ pub async fn login(
 
     let mut tries = 0;
     loop {
-        println!("waiting for callback for {tries} seconds");
         let auth_response: tokio::sync::MutexGuard<'_, Option<VaultAuthResponse>> =
             AUTH_RESPONSE.lock().await;
 
@@ -149,6 +325,10 @@ pub async fn login(
         }
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
         tries += 1;
+
+        if (tries % 10) == 0 {
+            println!("waiting for callback for {tries} seconds");
+        }
 
         if tries > 60 {
             println!("timeout waiting for callback");

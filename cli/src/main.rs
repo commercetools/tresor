@@ -1,10 +1,8 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use chrono::Utc;
 use clap::{command, Args, Parser, Subcommand};
 use config::{config_file_path, get_env, load_or_create_config, Config, EnvironmentConfig};
 use error::CliError;
-use vaultrs::api::kv2::requests::SetSecretMetadataRequestBuilder;
 
 mod config;
 mod error;
@@ -13,47 +11,62 @@ mod vault;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct TresorArgs {
-    /// vault environment to use: staging or production
-    #[clap(short, long, env = "VAULT_ENVIRONMENT")]
-    environment: String,
-
     #[command(subcommand)]
     command: Commands,
 }
 
-#[derive(Debug, Args)]
-struct VaultCommandArgs {
-    /// path to use
-    #[clap(short, long, env = "VAULT_PATH")]
-    path: Option<String>,
+#[derive(Debug, Clone, Args)]
+struct VaultEnvArgs {
+    /// vault environment to use: like staging or production
+    #[clap(env = "VAULT_ENVIRONMENT")]
+    environment: String,
+}
+
+#[derive(Debug, Clone, Args)]
+struct VaultContextArgs {
+    #[command(flatten)]
+    env: VaultEnvArgs,
     /// context to use
-    #[clap(short, long, env = "VAULT_CONTEXT")]
+    #[clap(env = "VAULT_CONTEXT")]
     context: String,
     /// service to use in template
     #[clap(short, long, env = "VAULT_SERVICE")]
     service: Option<String>,
+    /// path to use
+    #[clap(short, long, env = "VAULT_PATH")]
+    path: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
     Login {
+        #[command(flatten)]
+        vault: VaultEnvArgs,
         role: Option<String>,
     },
-    List(VaultCommandArgs),
-    Get(VaultCommandArgs),
+    List(VaultContextArgs),
+    Get(VaultContextArgs),
     Set(SetCommandArgs),
-    ShowConfig,
+    Patch(SetCommandArgs),
+    Config,
     /// print the current token of the environment
-    Token,
+    Token(VaultEnvArgs),
 }
 
 #[derive(Debug, Args)]
 struct SetCommandArgs {
+    #[command(flatten)]
+    context: VaultContextArgs,
+
+    /// input with json object data
     input_file: PathBuf,
 
     #[command(flatten)]
-    vault: VaultCommandArgs,
+    metadata: MetadataArgs,
+}
 
+#[derive(Debug, Args)]
+struct MetadataArgs {
     #[clap(long, env = "VAULT_METADATA_OWNER")]
     metadata_owner: Option<String>,
     #[clap(long, env = "VAULT_METADATA_MAX_TTL")]
@@ -76,7 +89,7 @@ fn replace_variables(
 fn mount_and_path(
     config: &Config,
     env: &EnvironmentConfig,
-    args: &VaultCommandArgs,
+    args: &VaultContextArgs,
 ) -> Result<(String, String), CliError> {
     let context = env
         .contexts
@@ -128,23 +141,22 @@ fn mount_and_path(
 #[tokio::main]
 async fn main() -> Result<(), CliError> {
     let args = &TresorArgs::parse();
-    let environment = &args.environment;
     let config = load_or_create_config().await?;
 
     match &args.command {
-        Commands::Login { role } => {
-            vault::login(&config, environment, role.to_owned()).await?;
+        Commands::Login { vault, role } => {
+            vault::login(&config, &vault.environment, role.to_owned()).await?;
             Ok(())
         }
-        Commands::Token => {
-            let env = get_env(&config, environment).await?;
+        Commands::Token(vault) => {
+            let env = get_env(&config, &vault.environment).await?;
             let token = env.valid_token()?;
             println!("export VAULT_TOKEN={}", token);
             println!("export VAULT_ADDR={}", env.vault_address);
             println!("export VAULT_ADDRESS={}", env.vault_address);
             Ok(())
         }
-        Commands::ShowConfig => {
+        Commands::Config => {
             let config_file = config_file_path().await?;
             println!(
                 "config {}:{}",
@@ -154,7 +166,7 @@ async fn main() -> Result<(), CliError> {
             Ok(())
         }
         Commands::List(args) => {
-            let env = get_env(&config, environment).await?;
+            let env = get_env(&config, &args.env.environment).await?;
             let (mount, path) = mount_and_path(&config, &env, args)?;
 
             println!("listing secrets in {mount}/{path}:");
@@ -168,7 +180,7 @@ async fn main() -> Result<(), CliError> {
             Ok(())
         }
         Commands::Get(args) => {
-            let env = get_env(&config, environment).await?;
+            let env = get_env(&config, &args.env.environment).await?;
             let (mount, path) = mount_and_path(&config, &env, args)?;
 
             println!("{mount}/{path}:");
@@ -185,41 +197,30 @@ async fn main() -> Result<(), CliError> {
             Ok(())
         }
         Commands::Set(set_args) => {
-            let env = get_env(&config, environment).await?;
-            let (mount, path) = mount_and_path(&config, &env, &set_args.vault)?;
+            let env = get_env(&config, &set_args.context.env.environment).await?;
+            let (mount, path) = mount_and_path(&config, &env, &set_args.context)?;
             // read json from file
             let data = tokio::fs::read(&set_args.input_file).await?;
             let value: HashMap<String, String> = serde_json::from_slice(&data)?;
-            let set_response =
-                vaultrs::kv2::set(&env.vault_client()?, &mount, &path, &value).await?;
 
-            let mut metadata = SetSecretMetadataRequestBuilder::default();
-            let mut custom_metadata: HashMap<String, String> = HashMap::new();
+            let set_response = env.vault()?.set_data(&mount, &path, value).await?;
+            crate::vault::set_metadata(&config, &env, &set_args, &mount, &path).await?;
 
-            custom_metadata.insert(
-                "owner".into(),
-                set_args
-                    .metadata_owner
-                    .clone()
-                    .unwrap_or(config.default_owner),
+            println!(
+                "set response: {}",
+                serde_json::to_string_pretty(&set_response)?
             );
+            Ok(())
+        }
+        Commands::Patch(patch_args) => {
+            let env = get_env(&config, &patch_args.context.env.environment).await?;
+            let (mount, path) = mount_and_path(&config, &env, &patch_args.context)?;
+            // read json from file
+            let data = tokio::fs::read(&patch_args.input_file).await?;
+            let value: HashMap<String, String> = serde_json::from_slice(&data)?;
 
-            if set_args.metadata_rotation.unwrap_or(false) {
-                custom_metadata.insert(
-                    "maxTTL".into(),
-                    set_args.metadata_max_ttl.clone().unwrap_or("90d".into()),
-                );
-                custom_metadata.insert("mustRotate".into(), "true".into());
-                custom_metadata.insert(
-                    "lastRotation".into(),
-                    Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
-                );
-            }
-
-            metadata.custom_metadata(custom_metadata);
-
-            vaultrs::kv2::set_metadata(&env.vault_client()?, &mount, &path, Some(&mut metadata))
-                .await?;
+            let set_response = env.vault()?.patch_data(&mount, &path, value).await?;
+            crate::vault::set_metadata(&config, &env, &patch_args, &mount, &path).await?;
 
             println!(
                 "set response: {}",

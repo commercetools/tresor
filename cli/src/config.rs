@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 use tokio::{fs::File, io::AsyncWriteExt};
 use vaultrs::client::VaultClient;
 
-use crate::{error::CliError, vault::create_client};
+use crate::{
+    error::CliError,
+    vault::{create_client, Vault},
+};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,6 +41,10 @@ impl EnvironmentConfig {
 
     pub fn vault_client(&self) -> Result<VaultClient, CliError> {
         create_client(&self.vault_address, Some(self.valid_token()?))
+    }
+
+    pub fn vault(&self) -> Result<Vault, CliError> {
+        Ok(Vault::create(&self.vault_address, &self.valid_token()?))
     }
 }
 
