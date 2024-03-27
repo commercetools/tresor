@@ -51,6 +51,12 @@ tresor list env prod1 -s some_service
 
 # this will get kv2/repo/some_service/env/some_path/prod1/some_path
 tresor get env prod1 -s some_service -p /some_path
+
+# check value mappings
+tresor sync env
+
+# apply value mappings including metadata
+tresor sync prod --apply --metadata-rotation=true
 ...
 ```
 
