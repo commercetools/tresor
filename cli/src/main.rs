@@ -175,7 +175,7 @@ async fn main() -> Result<(), CliError> {
             println!(
                 "config {}:{}",
                 config_file.display(),
-                serde_json::to_string_pretty(&config)?
+                serde_yaml::to_string(&config)?
             );
             Ok(())
         }
@@ -250,6 +250,11 @@ async fn main() -> Result<(), CliError> {
             );
 
             for mapping in &env.mappings.clone().unwrap_or_default() {
+                if mapping.skip.unwrap_or(false) {
+                    println!("skipping mapping: {mapping:?}");
+                    continue;
+                }
+
                 let source_value = match (mapping.source.clone(), mapping.value.clone()) {
                     (None, value) => value,
                     (Some(source_ref), None) => {

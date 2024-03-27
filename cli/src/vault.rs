@@ -135,7 +135,7 @@ async fn post<T: DeserializeOwned>(
     let client = reqwest::Client::new();
     let url = format!("{}/v1/{}", vault_url, path);
     let response = client
-        .post(url)
+        .post(&url)
         .header("X-Vault-Token", token)
         .header("X-Vault-Request", true.to_string())
         .header("Content-Type", "application/json")

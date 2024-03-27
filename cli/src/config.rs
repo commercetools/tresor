@@ -37,6 +37,7 @@ pub struct ValueMapping {
     pub source: Option<ValueRef>,
     pub value: Option<String>,
     pub target: ValueRef,
+    pub skip: Option<bool>,
 }
 
 impl EnvironmentConfig {
@@ -80,7 +81,7 @@ pub async fn config_file_path() -> Result<PathBuf, CliError> {
     ))?;
     let config_dir = home.join(".config/tresor");
     tokio::fs::create_dir_all(&config_dir).await?;
-    Ok(config_dir.join("config.json"))
+    Ok(config_dir.join("config.yaml"))
 }
 
 // load a json config from the user home directory .config/tresor/config.json
@@ -96,11 +97,11 @@ pub async fn load_or_create_config() -> Result<Config, CliError> {
     }
 
     let config = match tokio::fs::read(&config_file).await {
-        Ok(data) => serde_json::from_slice(&data)?,
+        Ok(data) => serde_yaml::from_slice(&data)?,
         Err(_) => {
             let default_config = Config::default();
             // write default config to file
-            let data = serde_json::to_string_pretty(&default_config)?;
+            let data = serde_yaml::to_string(&default_config)?;
             tokio::fs::write(&config_file, data).await?;
             default_config
         }
@@ -154,7 +155,7 @@ pub async fn write_token(
 
     let mut config_file = File::create(config_file_path().await?).await?;
     config_file
-        .write_all(serde_json::to_string_pretty(&config)?.as_bytes())
+        .write_all(serde_yaml::to_string(&config)?.as_bytes())
         .await?;
     Ok(config.to_owned())
 }

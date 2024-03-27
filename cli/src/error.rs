@@ -63,6 +63,12 @@ impl From<reqwest::Error> for CliError {
     }
 }
 
+impl From<serde_yaml::Error> for CliError {
+    fn from(error: serde_yaml::Error) -> Self {
+        Self::RuntimeError(error.to_string())
+    }
+}
+
 impl From<SetSecretMetadataRequestBuilderError> for CliError {
     fn from(error: SetSecretMetadataRequestBuilderError) -> Self {
         Self::RuntimeError(error.to_string())
