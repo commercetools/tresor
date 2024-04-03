@@ -75,4 +75,10 @@ impl From<SetSecretMetadataRequestBuilderError> for CliError {
     }
 }
 
+impl From<minijinja::Error> for CliError {
+    fn from(error: minijinja::Error) -> Self {
+        Self::RuntimeError(error.to_string())
+    }
+}
+
 impl ResponseError for CliError {}

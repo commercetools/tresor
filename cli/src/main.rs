@@ -1,8 +1,9 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use clap::{command, Args, Parser, Subcommand};
-use config::{config_file_path, get_env, load_or_create_config, Config, EnvironmentConfig};
+use config::{config_file_path, get_env, load_or_create_config, ContextConfig, EnvironmentConfig};
 use error::CliError;
+use minijinja::Environment;
 
 mod config;
 mod error;
@@ -26,7 +27,7 @@ struct VaultEnvArgs {
 struct VaultContextArgs {
     #[command(flatten)]
     env: VaultEnvArgs,
-    /// context to use
+    /// context to use, use '*' for all
     #[clap(env = "VAULT_CONTEXT")]
     context: String,
     /// service to use in template
@@ -57,7 +58,7 @@ enum Commands {
 #[derive(Debug, Args)]
 struct SyncCommandArgs {
     #[command(flatten)]
-    env: VaultEnvArgs,
+    context: VaultContextArgs,
 
     /// changes will only be applied if this flag is set
     #[clap(long, env = "SYNC_APPLY", default_value_t = false)]
@@ -87,36 +88,34 @@ struct MetadataArgs {
     metadata_max_ttl: Option<String>,
     #[clap(long, env = "VAULT_METADATA_ROTATION")]
     metadata_rotation: Option<bool>,
+    /// date in format %Y-%m-%dT%H:%M:%S%.3fZ
+    /// if not set current date time will be used
+    #[clap(long, env = "VAULT_METADATA_ROTATION_DATE")]
+    metadata_rotation_date: Option<String>,
 }
 
 fn replace_variables(
-    value: &str,
-    replacements: &HashMap<String, String>,
+    template: &str,
+    variables: &HashMap<String, String>,
 ) -> Result<String, CliError> {
-    let mut replaced = value.to_owned();
-    for (key, value) in replacements {
-        replaced = replaced.replace(&format!("{{{{{}}}}}", key), &value);
-    }
-    Ok(replaced)
+    let env = Environment::new();
+    let rendered = env.render_str(template, variables)?;
+    Ok(rendered)
 }
 
-fn mount_and_path(
-    config: &Config,
-    env: &EnvironmentConfig,
-    args: &VaultContextArgs,
-) -> Result<(String, String), CliError> {
+fn get_context(context_name: &str, env: &EnvironmentConfig) -> Result<ContextConfig, CliError> {
     let context = env
         .contexts
         .clone()
         .into_iter()
         .find_map(|context| {
-            let context_lowercase = context.to_string().to_lowercase();
-            if context_lowercase == args.context {
+            let context_lowercase = context.name.to_string().to_lowercase();
+            if context_lowercase == context_name {
                 Some(context)
-            } else if context_lowercase.contains(args.context.as_str()) {
+            } else if context_lowercase.contains(context_name) {
                 println!(
                     "found context '{}' via partial match of '{}'",
-                    context, args.context
+                    context.name, context_name
                 );
                 Some(context)
             } else {
@@ -125,30 +124,41 @@ fn mount_and_path(
         })
         .ok_or(CliError::RuntimeError(format!(
             "context {} not found in environment {}, must be part of:\n{}",
-            args.context,
+            context_name,
             env.name,
-            env.contexts.join("\n")
+            env.contexts
+                .iter()
+                .map(|context| context.name.to_string())
+                .collect::<Vec<String>>()
+                .join("\n")
         )))?;
+    Ok(context)
+}
 
+fn mount_and_path(
+    env: &str,
+    context: &ContextConfig,
+    mount_template: Option<String>,
+    path_template: Option<String>,
+    path: Option<String>,
+    service: Option<String>,
+) -> Result<(String, String), CliError> {
     let mut replacement_values: HashMap<String, String> = HashMap::new();
-    replacement_values.insert("context".into(), context);
-    replacement_values.insert("environment".into(), env.name.clone());
+    replacement_values.insert("context".into(), context.name.clone());
+    replacement_values.insert("environment".into(), env.to_string());
     replacement_values.insert(
         "service".into(),
-        args.service.clone().unwrap_or("default".into()),
+        service.clone().unwrap_or("default".into()),
     );
+    replacement_values.insert("path".into(), path.clone().unwrap_or("default".into()));
 
-    let mount = replace_variables(
-        &config.mount_template.clone().unwrap_or("".into()),
-        &replacement_values,
-    )?;
+    for (key, value) in context.variables.clone().unwrap_or_default() {
+        replacement_values.insert(key, value);
+    }
 
-    let path_base = replace_variables(
-        &config.path_template.clone().unwrap_or("".into()),
-        &replacement_values,
-    )?;
+    let mount = replace_variables(&mount_template.unwrap_or_default(), &replacement_values)?;
+    let path = replace_variables(&path_template.unwrap_or_default(), &replacement_values)?;
 
-    let path: String = format!("{path_base}{}", args.path.clone().unwrap_or("".into()));
     Ok((mount, path))
 }
 
@@ -172,16 +182,31 @@ async fn main() -> Result<(), CliError> {
         }
         Commands::Config => {
             let config_file = config_file_path().await?;
+            let mut clean_config = config.clone();
+
+            clean_config.environments.iter_mut().for_each(|env| {
+                env.token = None;
+                env.token_valid_until = None
+            });
+
             println!(
                 "config {}:{}",
                 config_file.display(),
-                serde_yaml::to_string(&config)?
+                serde_yaml::to_string(&clean_config)?
             );
             Ok(())
         }
         Commands::List(args) => {
             let env = get_env(&config, &args.env.environment).await?;
-            let (mount, path) = mount_and_path(&config, &env, args)?;
+            let context = get_context(&args.context, &env)?;
+            let (mount, path) = mount_and_path(
+                &env.name,
+                &context,
+                config.mount_template,
+                config.path_template,
+                args.path.clone(),
+                args.service.clone(),
+            )?;
 
             println!("listing secrets in {mount}/{path}:");
 
@@ -195,7 +220,15 @@ async fn main() -> Result<(), CliError> {
         }
         Commands::Get(args) => {
             let env = get_env(&config, &args.env.environment).await?;
-            let (mount, path) = mount_and_path(&config, &env, args)?;
+            let context = get_context(&args.context, &env)?;
+            let (mount, path) = mount_and_path(
+                &env.name,
+                &context,
+                config.mount_template,
+                config.path_template,
+                args.path.clone(),
+                args.service.clone(),
+            )?;
 
             println!("{mount}/{path}:");
 
@@ -212,13 +245,22 @@ async fn main() -> Result<(), CliError> {
         }
         Commands::Set(set_args) => {
             let env = get_env(&config, &set_args.context.env.environment).await?;
-            let (mount, path) = mount_and_path(&config, &env, &set_args.context)?;
+            let context = get_context(&set_args.context.context, &env)?;
+            let (mount, path) = mount_and_path(
+                &env.name,
+                &context,
+                config.mount_template.clone(),
+                config.path_template.clone(),
+                set_args.context.path.clone(),
+                set_args.context.service.clone(),
+            )?;
+
             // read json from file
             let data = tokio::fs::read(&set_args.input_file).await?;
             let value: HashMap<String, String> = serde_json::from_slice(&data)?;
 
             let set_response = env.vault()?.set_data(&mount, &path, value).await?;
-            crate::vault::set_metadata(&config, &env, &set_args.metadata, &mount, &path).await?;
+            crate::vault::set_metadata(&config, &env.vault_client()?, &set_args.metadata, &mount, &path).await?;
 
             println!(
                 "set response: {}",
@@ -228,13 +270,22 @@ async fn main() -> Result<(), CliError> {
         }
         Commands::Patch(patch_args) => {
             let env = get_env(&config, &patch_args.context.env.environment).await?;
-            let (mount, path) = mount_and_path(&config, &env, &patch_args.context)?;
+            let context = get_context(&patch_args.context.context, &env)?;
+            let (mount, path) = mount_and_path(
+                &env.name,
+                &context,
+                config.mount_template.clone(),
+                config.path_template.clone(),
+                patch_args.context.path.clone(),
+                patch_args.context.service.clone(),
+            )?;
+
             // read json from file
             let data = tokio::fs::read(&patch_args.input_file).await?;
             let value: HashMap<String, String> = serde_json::from_slice(&data)?;
 
             let set_response = env.vault()?.patch_data(&mount, &path, value).await?;
-            crate::vault::set_metadata(&config, &env, &patch_args.metadata, &mount, &path).await?;
+            crate::vault::set_metadata(&config, &env.vault_client()?, &patch_args.metadata, &mount, &path).await?;
 
             println!(
                 "set response: {}",
@@ -243,103 +294,113 @@ async fn main() -> Result<(), CliError> {
             Ok(())
         }
         Commands::Sync(sync_args) => {
-            let env = get_env(&config, &sync_args.env.environment).await?;
-            println!(
-                "syncing environment {}, apply: {}",
-                env.name, sync_args.apply
-            );
+            let env = get_env(&config, &sync_args.context.env.environment).await?;
+            let vault_client = &env.vault_client()?;
+            let vault = env.vault()?;
 
-            for mapping in &env.mappings.clone().unwrap_or_default() {
-                if mapping.skip.unwrap_or(false) {
-                    println!("skipping mapping: {mapping:?}");
-                    continue;
-                }
+            let contexts = match sync_args.context.context.as_str() {
+                "*" => env.contexts,
+                context_name => vec![get_context(context_name, &env)?],
+            };
 
-                let source_value = match (mapping.source.clone(), mapping.value.clone()) {
-                    (None, value) => value,
-                    (Some(source_ref), None) => {
-                        let read_source_values =
-                            vaultrs::kv2::read::<HashMap<String, Option<String>>>(
-                                &env.vault_client()?,
-                                &source_ref.mount,
-                                &source_ref.path,
-                            )
-                            .await;
-
-                        let source_values = read_source_values.map_err(|e| {
-                            CliError::RuntimeError(format!(
-                                "unable to read source: {source_ref:?}: {}",
-                                e
-                            ))
-                        })?;
-
-                        let source_value = source_values.get(&source_ref.key).unwrap_or(&None);
-                        source_value.clone()
+            for context in contexts {
+                for mapping in &env.mappings.clone().unwrap_or_default() {
+                    if mapping.skip.unwrap_or(false) {
+                        println!("skipping mapping: {mapping:?}");
+                        continue;
                     }
-                    _ => return Err(CliError::RuntimeError("invalid source mapping".into())),
-                };
 
-                match source_value {
-                    Some(value) => {
-                        let target = mapping.target.clone();
-
-                        let read_target_values = vaultrs::kv2::read::<HashMap<String, String>>(
-                            &env.vault_client()?,
-                            &target.mount,
-                            &target.path,
-                        )
-                        .await;
-
-                        let mut target_values = read_target_values.map_err(|e| {
-                            CliError::RuntimeError(format!(
-                                "unable to read target: {target:?}: {}",
-                                e
-                            ))
-                        })?;
-
-                        target_values.insert(mapping.target.key.clone(), value.to_string());
-
-                        if sync_args.apply {
-                            let set_response = env
-                                .vault()?
-                                .set_data(
-                                    &mapping.target.mount,
-                                    &mapping.target.path,
-                                    target_values.clone(),
+                    let source_value = match (mapping.source.clone(), mapping.value.clone()) {
+                        (None, value) => value,
+                        (Some(source_ref), None) => {
+                            let read_source_values =
+                                vaultrs::kv2::read::<HashMap<String, Option<String>>>(
+                                    vault_client,
+                                    &source_ref.mount,
+                                    &source_ref.path,
                                 )
                                 .await;
 
-                            set_response.map_err(|e| {
+                            let source_values = read_source_values.map_err(|e| {
                                 CliError::RuntimeError(format!(
-                                    "unable to set target: {target:?}: {}",
+                                    "unable to read source: {source_ref:?}: {}",
                                     e
                                 ))
                             })?;
 
-                            let metadata_response = crate::vault::set_metadata(
-                                &config,
-                                &env,
-                                &sync_args.metadata,
+                            let source_value = source_values.get(&source_ref.key).unwrap_or(&None);
+                            source_value.clone()
+                        }
+                        _ => return Err(CliError::RuntimeError("invalid source mapping".into())),
+                    };
+
+                    match source_value {
+                        Some(value) => {
+                            let target = mapping.target.clone();
+
+                            let read_target_values = vaultrs::kv2::read::<HashMap<String, String>>(
+                                vault_client,
                                 &target.mount,
                                 &target.path,
                             )
                             .await;
 
-                            metadata_response.map_err(|e| {
+                            let mut target_values = read_target_values.map_err(|e| {
                                 CliError::RuntimeError(format!(
-                                    "unable to set metadata for target: {target:?}: {}",
+                                    "unable to read target: {target:?}: {}",
                                     e
                                 ))
                             })?;
 
-                            println!("updated {target:?}, with value: {value}")
-                        } else {
-                            println!("would update {target:?} with value: {value}")
+                            target_values.insert(mapping.target.key.clone(), value.to_string());
+
+                            if sync_args.apply {
+                                let set_response =             vault
+                                    .set_data(
+                                        &mapping.target.mount,
+                                        &mapping.target.path,
+                                        target_values.clone(),
+                                    )
+                                    .await;
+
+                                set_response.map_err(|e| {
+                                    CliError::RuntimeError(format!(
+                                        "unable to set target: {target:?}: {}",
+                                        e
+                                    ))
+                                })?;
+
+                                let metadata_response = crate::vault::set_metadata(
+                                    &config,
+                                    vault_client,
+                                    &sync_args.metadata,
+                                    &target.mount,
+                                    &target.path,
+                                )
+                                .await;
+
+                                metadata_response.map_err(|e| {
+                                    CliError::RuntimeError(format!(
+                                        "unable to set metadata for target: {target:?}: {}",
+                                        e
+                                    ))
+                                })?;
+
+                                println!("updated {target:?}, with value: {value}")
+                            } else {
+                                println!("would update {target:?} with value: {value}")
+                            }
                         }
+                        None => println!("no source value found for {mapping:?}"),
                     }
-                    None => println!("no source value found for {mapping:?}"),
                 }
             }
+
+            println!(
+                "syncing environment {}, apply: {}",
+                env.name, sync_args.apply
+            );
+
             Ok(())
         }
     }

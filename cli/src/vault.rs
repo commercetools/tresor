@@ -210,7 +210,7 @@ async fn patch<T: DeserializeOwned>(
 
 pub async fn set_metadata(
     config: &Config,
-    env: &EnvironmentConfig,
+    client: &VaultClient,
     metadata: &MetadataArgs,
     mount: &str,
     path: &str,
@@ -234,7 +234,11 @@ pub async fn set_metadata(
         custom_metadata.insert("mustRotate".into(), "true".into());
         custom_metadata.insert(
             "lastRotation".into(),
-            Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
+            metadata
+                .metadata_rotation_date
+                .clone()
+                .unwrap_or_else(|| Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string())
+                .into(),
         );
     } else {
         println!("not setting rotation metadata (see command options)")
@@ -243,7 +247,7 @@ pub async fn set_metadata(
     metadata_request.custom_metadata(custom_metadata);
 
     vaultrs::kv2::set_metadata(
-        &env.vault_client()?,
+        client,
         &mount,
         &path,
         Some(&mut metadata_request),

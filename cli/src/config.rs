@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use home::home_dir;
 
@@ -13,12 +13,19 @@ use crate::{
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ContextConfig {
+    pub name: String,
+    pub variables: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EnvironmentConfig {
     pub name: String,
     pub vault_address: String,
     pub token: Option<String>,
     pub token_valid_until: Option<u64>,
-    pub contexts: Vec<String>,
+    pub contexts: Vec<ContextConfig>,
     pub auth_mount: Option<String>,
     pub mappings: Option<Vec<ValueMapping>>,
 }

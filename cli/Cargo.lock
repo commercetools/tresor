@@ -1087,6 +1087,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
+name = "minijinja"
+version = "1.0.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fb3bf58a1ec4f3f228bec851a2066c7717ad308817cd8a08f67c10660c6ff7b"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1948,6 +1957,7 @@ dependencies = [
  "clap",
  "dialoguer",
  "home",
+ "minijinja",
  "once_cell",
  "reqwest",
  "serde",
