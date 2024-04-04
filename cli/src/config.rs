@@ -2,6 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use home::home_dir;
 
+use minijinja::Environment;
 use serde::{Deserialize, Serialize};
 use tokio::{fs::File, io::AsyncWriteExt};
 use vaultrs::client::VaultClient;
@@ -16,6 +17,50 @@ use crate::{
 pub struct ContextConfig {
     pub name: String,
     pub variables: Option<HashMap<String, String>>,
+}
+
+impl ContextConfig {
+    fn replace_variables(
+        template: &str,
+        variables: &HashMap<String, String>,
+    ) -> Result<String, CliError> {
+        let env = Environment::new();
+        let rendered = env.render_str(template, variables)?;
+        Ok(rendered)
+    }
+
+    pub fn mount_and_path(
+        &self,
+        env: &str,
+        mount_template: Option<String>,
+        path_template: Option<String>,
+        path: Option<String>,
+        service: Option<String>,
+    ) -> Result<(String, String), CliError> {
+        let mut replacement_values: HashMap<String, String> = HashMap::new();
+        replacement_values.insert("context".into(), self.name.clone());
+        replacement_values.insert("environment".into(), env.to_string());
+        replacement_values.insert(
+            "service".into(),
+            service.clone().unwrap_or("default".into()),
+        );
+        replacement_values.insert("path".into(), path.clone().unwrap_or("default".into()));
+
+        for (key, value) in self.variables.clone().unwrap_or_default() {
+            replacement_values.insert(key, value);
+        }
+
+        let mount = ContextConfig::replace_variables(
+            &mount_template.unwrap_or_default(),
+            &replacement_values,
+        )?;
+        let path = ContextConfig::replace_variables(
+            &path_template.unwrap_or_default(),
+            &replacement_values,
+        )?;
+
+        Ok((mount, path))
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -70,6 +115,38 @@ impl EnvironmentConfig {
 
     pub fn vault(&self) -> Result<Vault, CliError> {
         Ok(Vault::create(&self.vault_address, &self.valid_token()?))
+    }
+
+    pub fn get_context(&self, context_name: &str) -> Result<ContextConfig, CliError> {
+        let context = self
+            .contexts
+            .clone()
+            .into_iter()
+            .find_map(|context| {
+                let context_lowercase = context.name.to_string().to_lowercase();
+                if context_lowercase == context_name {
+                    Some(context)
+                } else if context_lowercase.contains(context_name) {
+                    println!(
+                        "found context '{}' via partial match of '{}'",
+                        context.name, context_name
+                    );
+                    Some(context)
+                } else {
+                    None
+                }
+            })
+            .ok_or(CliError::RuntimeError(format!(
+                "context {} not found in environment {}, must be part of:\n{}",
+                context_name,
+                self.name,
+                self.contexts
+                    .iter()
+                    .map(|context| context.name.to_string())
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            )))?;
+        Ok(context)
     }
 }
 

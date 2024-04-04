@@ -209,9 +209,9 @@ async fn patch<T: DeserializeOwned>(
 }
 
 pub async fn set_metadata(
-    config: &Config,
     client: &VaultClient,
     metadata: &MetadataArgs,
+    default_owner: &str,
     mount: &str,
     path: &str,
 ) -> Result<(), CliError> {
@@ -223,7 +223,7 @@ pub async fn set_metadata(
         metadata
             .metadata_owner
             .clone()
-            .unwrap_or(config.default_owner.clone()),
+            .unwrap_or(default_owner.to_string()),
     );
 
     if metadata.metadata_rotation.unwrap_or(false) {
@@ -246,13 +246,7 @@ pub async fn set_metadata(
 
     metadata_request.custom_metadata(custom_metadata);
 
-    vaultrs::kv2::set_metadata(
-        client,
-        &mount,
-        &path,
-        Some(&mut metadata_request),
-    )
-    .await?;
+    vaultrs::kv2::set_metadata(client, &mount, &path, Some(&mut metadata_request)).await?;
     Ok(())
 }
 
