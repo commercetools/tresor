@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, fmt::Display, path::PathBuf};
 
 use home::home_dir;
 
@@ -83,6 +83,12 @@ pub struct ValueRef {
     pub key: String,
 }
 
+impl Display for ValueRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}#{}", self.mount, self.path, self.key)
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ValueMapping {
@@ -90,6 +96,22 @@ pub struct ValueMapping {
     pub value: Option<String>,
     pub target: ValueRef,
     pub skip: Option<bool>,
+}
+
+impl Display for ValueMapping {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} -> {} (skip: {})",
+            self.source
+                .clone()
+                .map(|value_ref| value_ref.to_string())
+                .or(self.value.clone())
+                .unwrap_or("-".into()),
+            self.target.to_string(),
+            self.skip.unwrap_or(false)
+        )
+    }
 }
 
 impl EnvironmentConfig {

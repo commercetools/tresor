@@ -13,6 +13,7 @@ use vaultrs::{
 
 use crate::{
     config::{get_env, load_or_create_config, write_token, Config, EnvironmentConfig},
+    console::Console,
     error::CliError,
     MetadataArgs,
 };
@@ -241,7 +242,10 @@ pub async fn set_metadata(
                 .into(),
         );
     } else {
-        println!("not setting rotation metadata (see command options)")
+        println!(
+            "{}",
+            Console::warning("not setting rotation metadata (see command options)")
+        )
     }
 
     metadata_request.custom_metadata(custom_metadata);

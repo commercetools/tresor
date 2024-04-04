@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use vaultrs::error::ClientError;
+
 use crate::{config::EnvironmentConfig, console::Console, error::CliError, SyncCommandArgs};
 
 pub async fn sync_mappings(
@@ -10,7 +12,7 @@ pub async fn sync_mappings(
     println!(
         "syncing environment {}, apply: {}",
         Console::highlight(&env.name),
-        sync_args.apply
+        Console::warning(sync_args.apply)
     );
 
     let vault_client = &env.vault_client()?;
@@ -22,9 +24,14 @@ pub async fn sync_mappings(
     };
 
     for context in contexts {
+        println!(
+            "syncing mappings for context {}",
+            Console::highlight(&context.name)
+        );
+
         for mapping in &env.mappings.clone().unwrap_or_default() {
             if mapping.skip.unwrap_or(false) {
-                println!("{}: {mapping:?}", Console::highlight("skipping mapping"));
+                println!("{}: {mapping}", Console::highlight("skipping mapping"));
                 continue;
             }
 
@@ -47,7 +54,7 @@ pub async fn sync_mappings(
 
                     let source_values = read_source_values.map_err(|e| {
                         CliError::RuntimeError(format!(
-                            "unable to read source: {source_ref:?}: {}",
+                            "unable to read source: {source_ref}: {}",
                             e
                         ))
                     })?;
@@ -63,7 +70,7 @@ pub async fn sync_mappings(
             };
 
             match source_value {
-                Some(value) => {
+                Some(source_value) => {
                     let target = mapping.target.clone();
 
                     let (target_mount, target_path) = context.mount_and_path(
@@ -81,11 +88,28 @@ pub async fn sync_mappings(
                     )
                     .await;
 
-                    let mut target_values = read_target_values.map_err(|e| {
-                        CliError::RuntimeError(format!("unable to read target: {target:?}: {}", e))
-                    })?;
+                    let mut target_values = match read_target_values {
+                        Ok(values) => values,
+                        Err(ClientError::APIError { code, errors: _ }) if code == 404 => {
+                            HashMap::new()
+                        }
+                        Err(err) => {
+                            return Err(CliError::RuntimeError(format!(
+                                "unable to read target: {target}: {}",
+                                err
+                            )))
+                        }
+                    };
 
-                    target_values.insert(target.key.clone(), value.to_string());
+                    target_values.insert(target.key.clone(), source_value.to_string());
+
+                    let target_message_part = format!("{target_mount}/{target_path}");
+                    let source_value_message_part = format!(
+                        "{}XXXX",
+                        Console::highlight(
+                            source_value.chars().into_iter().take(4).collect::<String>()
+                        )
+                    );
 
                     if sync_args.apply {
                         let set_response = vault
@@ -93,10 +117,7 @@ pub async fn sync_mappings(
                             .await;
 
                         set_response.map_err(|e| {
-                            CliError::RuntimeError(format!(
-                                "unable to set target: {target:?}: {}",
-                                e
-                            ))
+                            CliError::RuntimeError(format!("unable to set target: {target}: {}", e))
                         })?;
 
                         let metadata_response = crate::vault::set_metadata(
@@ -110,17 +131,20 @@ pub async fn sync_mappings(
 
                         metadata_response.map_err(|e| {
                             CliError::RuntimeError(format!(
-                                "unable to set metadata for target: {target:?}: {}",
+                                "unable to set metadata for target: {target_message_part}: {}",
                                 e
                             ))
                         })?;
 
                         println!(
-                            "{} {target:?}, with value: {value}",
+                            "{} {target_message_part}, with value: {source_value_message_part}",
                             Console::success("updated")
                         )
                     } else {
-                        println!("would update {target:?} with value: {value}")
+                        println!(
+                            "{} {target_message_part} with value: {source_value_message_part}",
+                            Console::warning("would update")
+                        )
                     }
                 }
                 None => println!("no source value found for {mapping:?}"),
@@ -129,4 +153,122 @@ pub async fn sync_mappings(
     }
 
     Ok(())
+}
+
+// the tests depend on the docker-compose setup in the project root
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+
+    use serde_json::json;
+
+    use crate::{
+        config::{ContextConfig, ValueMapping, ValueRef},
+        error::CliError,
+        sync::sync_mappings,
+        MetadataArgs, SyncCommandArgs, VaultContextArgs, VaultEnvArgs,
+    };
+
+    #[tokio::test]
+    async fn test_sync_mappings() -> Result<(), CliError> {
+        let mut variables: HashMap<String, String> = HashMap::new();
+        variables.insert("var".into(), "path-from-var".into());
+
+        let mappings = vec![
+            ValueMapping {
+                source: None,
+                value: Some("source value".into()),
+                target: ValueRef {
+                    mount: "{{service}}".into(),
+                    path: "{{path}}".into(),
+                    key: "test-field".into(),
+                },
+                skip: None,
+            },
+            ValueMapping {
+                value: None,
+                source: Some(ValueRef {
+                    mount: "{{service}}".into(),
+                    path: "{{path}}".into(),
+                    key: "test-field".into(),
+                }),
+                target: ValueRef {
+                    mount: "{{service}}".into(),
+                    path: "{{path}}/{{var}}".into(),
+                    key: "mapped-field".into(),
+                },
+                skip: None,
+            },
+        ];
+
+        let env = crate::config::EnvironmentConfig {
+            name: "test".to_string(),
+            vault_address: "http://localhost:8200".into(),
+            token: Some("vault-plaintext-root-token".into()),
+            token_valid_until: Some(u64::MAX),
+            contexts: vec![ContextConfig {
+                name: "context".into(),
+                variables: Some(variables),
+            }],
+            auth_mount: None,
+            mappings: Some(mappings),
+        };
+
+        let sync_args = SyncCommandArgs {
+            apply: true,
+            context: VaultContextArgs {
+                env: VaultEnvArgs {
+                    environment: "test".into(),
+                },
+                context: "*".into(),
+                service: Some("secret".into()),
+                path: Some("test-path".into()),
+            },
+            metadata: MetadataArgs {
+                metadata_rotation: Some(true),
+                metadata_owner: None,
+                metadata_max_ttl: None,
+                metadata_rotation_date: Some("2024-04-04T10:10:10.000Z".into()),
+            },
+        };
+
+        sync_mappings(&env, &sync_args, "test-owner").await?;
+
+        let value =
+            vaultrs::kv2::read::<serde_json::Value>(&env.vault_client()?, "secret", "test-path")
+                .await?;
+
+        assert_eq!(value, json!({ "test-field": "source value" }));
+
+        let value = vaultrs::kv2::read::<serde_json::Value>(
+            &env.vault_client()?,
+            "secret",
+            "test-path/path-from-var",
+        )
+        .await?;
+
+        assert_eq!(value, json!({ "mapped-field": "source value" }));
+
+        let metadata =
+            vaultrs::kv2::read_metadata(&env.vault_client()?, "secret", "test-path/path-from-var")
+                .await?;
+
+        let current_metadata = metadata.custom_metadata.unwrap_or_default();
+        assert_eq!(
+            current_metadata.get("mustRotate"),
+            Some(&"true".to_string())
+        );
+
+        assert_eq!(current_metadata.get("maxTTL"), Some(&"90d".to_string()));
+        assert_eq!(
+            current_metadata.get("owner"),
+            Some(&"test-owner".to_string())
+        );
+        assert_eq!(
+            current_metadata.get("lastRotation"),
+            Some(&"2024-04-04T10:10:10.000Z".to_string())
+        );
+
+        Ok(())
+    }
 }
