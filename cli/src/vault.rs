@@ -337,7 +337,7 @@ pub async fn login(
 
         match auth_response.as_ref() {
             Some(auth) => {
-                println!("token received");
+                println!("{}", Console::success("token received"));
                 let mut config = load_or_create_config().await?;
                 write_token(
                     &mut config,
@@ -354,15 +354,20 @@ pub async fn login(
         tries += 1;
 
         if (tries % 10) == 0 {
-            println!("waiting for callback for {tries} seconds");
+            println!(
+                "{}",
+                Console::highlight("waiting for callback for {tries} seconds")
+            );
         }
 
         if tries > 60 {
-            println!("timeout waiting for callback");
+            println!("{}", Console::error("timeout waiting for callback"));
             break;
         }
     }
 
     handle.stop(true).await;
-    Err(CliError::RuntimeError("Authentication failed".to_string()))
+    Err(CliError::RuntimeError(Console::error(
+        "Authentication failed",
+    )))
 }

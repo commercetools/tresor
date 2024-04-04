@@ -175,7 +175,7 @@ async fn main() -> Result<(), CliError> {
                 vaultrs::kv2::read::<serde_json::Value>(&env.vault_client()?, &mount, &path)
                     .await?;
 
-            println!("{}", serde_json::to_string_pretty(&value)?);
+            Console::highlight(serde_json::to_string_pretty(&value)?);
 
             let metadata = vaultrs::kv2::read_metadata(&env.vault_client()?, &mount, &path).await?;
             println!("metadata:\n{}", serde_json::to_string_pretty(&metadata)?);
@@ -240,7 +240,7 @@ async fn main() -> Result<(), CliError> {
 
             println!(
                 "set response: {}",
-                serde_json::to_string_pretty(&set_response)?
+                Console::highlight(serde_json::to_string_pretty(&set_response)?)
             );
             Ok(())
         }
