@@ -131,7 +131,7 @@ async fn main() -> Result<(), CliError> {
             });
 
             println!(
-                "config {}:{}",
+                "config {}:\n{}",
                 Console::highlight(config_file.display()),
                 serde_yaml::to_string(&clean_config)?
             );
