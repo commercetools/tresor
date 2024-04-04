@@ -247,7 +247,14 @@ async fn main() -> Result<(), CliError> {
         }
         Commands::Sync(sync_args) => {
             let env = &get_env(&config, &sync_args.context.env.environment).await?;
-            crate::sync::sync_mappings(&env, sync_args, &config.default_owner).await?;
+            match config.mappings {
+                Some(mappings) => {
+                    crate::sync::sync_mappings(mappings, &env, sync_args, &config.default_owner)
+                        .await?;
+                }
+                None => println!("{}", Console::warning("no mappings configured")),
+            };
+
             Ok(())
         }
     }

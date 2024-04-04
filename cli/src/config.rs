@@ -93,7 +93,6 @@ pub struct EnvironmentConfig {
     pub token_valid_until: Option<u64>,
     pub contexts: Vec<ContextConfig>,
     pub auth_mount: Option<String>,
-    pub mappings: Option<Vec<ValueMapping>>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -200,6 +199,7 @@ pub struct Config {
     pub mount_template: Option<String>,
     pub path_template: Option<String>,
     pub environments: Vec<EnvironmentConfig>,
+    pub mappings: Option<Vec<ValueMapping>>,
 }
 
 pub async fn config_file_path() -> Result<PathBuf, CliError> {

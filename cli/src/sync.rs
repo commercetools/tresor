@@ -2,9 +2,15 @@ use std::collections::HashMap;
 
 use vaultrs::error::ClientError;
 
-use crate::{config::EnvironmentConfig, console::Console, error::CliError, SyncCommandArgs};
+use crate::{
+    config::{EnvironmentConfig, ValueMapping},
+    console::Console,
+    error::CliError,
+    SyncCommandArgs,
+};
 
 pub async fn sync_mappings(
+    mappings: Vec<ValueMapping>,
     env: &EnvironmentConfig,
     sync_args: &SyncCommandArgs,
     default_owner: &str,
@@ -29,7 +35,7 @@ pub async fn sync_mappings(
             Console::highlight(&context.name)
         );
 
-        for mapping in &env.mappings.clone().unwrap_or_default() {
+        for mapping in mappings.clone() {
             if mapping.skip.unwrap_or(false) {
                 println!("{}: {mapping}", Console::highlight("skipping mapping"));
                 continue;
@@ -228,7 +234,6 @@ mod test {
                 variables: Some(variables),
             }],
             auth_mount: None,
-            mappings: Some(mappings),
         };
 
         let sync_args = SyncCommandArgs {
@@ -249,7 +254,7 @@ mod test {
             },
         };
 
-        sync_mappings(&env, &sync_args, "test-owner").await?;
+        sync_mappings(mappings, &env, &sync_args, "test-owner").await?;
 
         let value =
             vaultrs::kv2::read::<serde_json::Value>(&env.vault_client()?, "secret", "test-path")
