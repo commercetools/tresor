@@ -29,31 +29,37 @@ struct VaultEnvArgs {
 struct VaultContextArgs {
     #[command(flatten)]
     env: VaultEnvArgs,
-    /// context to use, use '*' for all
+    /// context to use, use '*' for all context in the sync command
     #[clap(env = "TRESOR_CONTEXT")]
     context: String,
-    /// service to use in template
+    /// service to use in the templates
     #[clap(short, long, env = "TRESOR_SERVICE")]
     service: Option<String>,
-    /// path to use
+    /// path to use in the templates
     #[clap(short, long, env = "TRESOR_PATH")]
     path: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// login and store the token in the environment config
     Login {
         #[command(flatten)]
         vault: VaultEnvArgs,
         role: Option<String>,
     },
+    /// list paths in context
     List(VaultContextArgs),
+    /// get values in context
     Get(VaultContextArgs),
+    /// set values using the put method
     Set(SetCommandArgs),
+    /// set values using the patch method
     Patch(SetCommandArgs),
     Config,
     /// print the current token of the environment
     Token(VaultEnvArgs),
+    /// sync the value mappings in the environment configuration
     Sync(SyncCommandArgs),
 }
 
@@ -84,12 +90,13 @@ struct SetCommandArgs {
 
 #[derive(Debug, Args)]
 struct MetadataArgs {
+    /// set to true to set rotation related metadata fields
+    #[clap(long, env = "TRESOR_METADATA_ROTATION")]
+    metadata_rotation: Option<bool>,
     #[clap(long, env = "TRESOR_METADATA_OWNER")]
     metadata_owner: Option<String>,
     #[clap(long, env = "TRESOR_METADATA_MAX_TTL")]
     metadata_max_ttl: Option<String>,
-    #[clap(long, env = "TRESOR_METADATA_ROTATION")]
-    metadata_rotation: Option<bool>,
     /// date in format %Y-%m-%dT%H:%M:%S%.3fZ
     /// if not set current date time will be used
     #[clap(long, env = "TRESOR_METADATA_ROTATION_DATE")]
