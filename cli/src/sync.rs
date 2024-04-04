@@ -1,12 +1,18 @@
 use std::collections::HashMap;
 
-use crate::{config::EnvironmentConfig, error::CliError, SyncCommandArgs};
+use crate::{config::EnvironmentConfig, console::Console, error::CliError, SyncCommandArgs};
 
 pub async fn sync_mappings(
     env: &EnvironmentConfig,
     sync_args: &SyncCommandArgs,
     default_owner: &str,
 ) -> Result<(), CliError> {
+    println!(
+        "syncing environment {}, apply: {}",
+        Console::highlight(&env.name),
+        sync_args.apply
+    );
+
     let vault_client = &env.vault_client()?;
     let vault = &env.vault()?;
 
@@ -18,7 +24,7 @@ pub async fn sync_mappings(
     for context in contexts {
         for mapping in &env.mappings.clone().unwrap_or_default() {
             if mapping.skip.unwrap_or(false) {
-                println!("skipping mapping: {mapping:?}");
+                println!("{}: {mapping:?}", Console::highlight("skipping mapping"));
                 continue;
             }
 
@@ -49,7 +55,11 @@ pub async fn sync_mappings(
                     let source_value = source_values.get(&source_ref.key).unwrap_or(&None);
                     source_value.clone()
                 }
-                _ => return Err(CliError::RuntimeError("invalid source mapping".into())),
+                _ => {
+                    return Err(CliError::RuntimeError(Console::error(
+                        "invalid source mapping",
+                    )))
+                }
             };
 
             match source_value {
@@ -105,7 +115,10 @@ pub async fn sync_mappings(
                             ))
                         })?;
 
-                        println!("updated {target:?}, with value: {value}")
+                        println!(
+                            "{} {target:?}, with value: {value}",
+                            Console::success("updated")
+                        )
                     } else {
                         println!("would update {target:?} with value: {value}")
                     }
@@ -114,11 +127,6 @@ pub async fn sync_mappings(
             }
         }
     }
-
-    println!(
-        "syncing environment {}, apply: {}",
-        env.name, sync_args.apply
-    );
 
     Ok(())
 }

@@ -2,9 +2,11 @@ use std::{collections::HashMap, path::PathBuf};
 
 use clap::{command, Args, Parser, Subcommand};
 use config::{config_file_path, get_env, load_or_create_config};
+use console::Console;
 use error::CliError;
 
 mod config;
+mod console;
 mod error;
 mod sync;
 mod vault;
@@ -123,7 +125,7 @@ async fn main() -> Result<(), CliError> {
 
             println!(
                 "config {}:{}",
-                config_file.display(),
+                Console::highlight(config_file.display()),
                 serde_yaml::to_string(&clean_config)?
             );
             Ok(())
@@ -200,7 +202,7 @@ async fn main() -> Result<(), CliError> {
 
             println!(
                 "set response: {}",
-                serde_json::to_string_pretty(&set_response)?
+                Console::highlight(serde_json::to_string_pretty(&set_response)?)
             );
             Ok(())
         }

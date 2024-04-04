@@ -1955,6 +1955,7 @@ dependencies = [
  "actix-web",
  "chrono",
  "clap",
+ "console",
  "dialoguer",
  "home",
  "minijinja",
