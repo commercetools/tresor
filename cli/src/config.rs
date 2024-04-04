@@ -9,6 +9,7 @@ use vaultrs::client::VaultClient;
 
 use crate::{
     error::CliError,
+    template::track_context,
     vault::{create_client, Vault},
 };
 
@@ -20,23 +21,13 @@ pub struct ContextConfig {
 }
 
 impl ContextConfig {
-    fn replace_variables(
-        template: &str,
-        variables: &HashMap<String, String>,
-    ) -> Result<String, CliError> {
-        let env = Environment::new();
-        let rendered = env.render_str(template, variables)?;
-        Ok(rendered)
-    }
-
-    pub fn mount_and_path(
+    pub fn replace_variables(
         &self,
+        template: &str,
         env: &str,
-        mount_template: Option<String>,
-        path_template: Option<String>,
         path: Option<String>,
         service: Option<String>,
-    ) -> Result<(String, String), CliError> {
+    ) -> Result<String, CliError> {
         let mut replacement_values: HashMap<String, String> = HashMap::new();
         replacement_values.insert("context".into(), self.name.clone());
         replacement_values.insert("environment".into(), env.to_string());
@@ -50,14 +41,44 @@ impl ContextConfig {
             replacement_values.insert(key, value);
         }
 
-        let mount = ContextConfig::replace_variables(
+        let (variables, undefined) = track_context(replacement_values.into());
+
+        let env = Environment::new();
+        let rendered = env.render_str(template, variables)?;
+
+        if rendered.contains("{") || rendered.contains("}") {
+            return Err(CliError::TemplateError(format!(
+                "curly braces found after template replace, this is considered an error: {rendered}"
+            )));
+        }
+
+        let all_undefined = undefined.lock().unwrap().clone();
+
+        if !all_undefined.is_empty() {
+            return Err(CliError::TemplateError(format!(
+                "found undefined values in template: {all_undefined:?}"
+            )));
+        }
+
+        Ok(rendered)
+    }
+
+    pub fn mount_and_path(
+        &self,
+        env: &str,
+        mount_template: Option<String>,
+        path_template: Option<String>,
+        path: Option<String>,
+        service: Option<String>,
+    ) -> Result<(String, String), CliError> {
+        let mount = self.replace_variables(
             &mount_template.unwrap_or_default(),
-            &replacement_values,
+            env,
+            path.clone(),
+            service.clone(),
         )?;
-        let path = ContextConfig::replace_variables(
-            &path_template.unwrap_or_default(),
-            &replacement_values,
-        )?;
+        let path =
+            self.replace_variables(&path_template.unwrap_or_default(), env, path, service)?;
 
         Ok((mount, path))
     }
@@ -264,4 +285,62 @@ pub async fn write_token(
         .write_all(serde_yaml::to_string(&config)?.as_bytes())
         .await?;
     Ok(config.to_owned())
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+
+    use crate::{config::ContextConfig, error::CliError};
+
+    #[tokio::test]
+    async fn test_replacements() -> Result<(), CliError> {
+        let mut variables: HashMap<String, String> = HashMap::new();
+        variables.insert("var1".into(), "var1".into());
+
+        let context = ContextConfig {
+            name: "test".into(),
+            variables: Some(variables),
+        };
+
+        assert_eq!(
+            context.replace_variables(
+                "{{var1}}/{{environment}}/{{service}}/{{path}}",
+                "env",
+                None,
+                None,
+            )?,
+            "var1/env/default/default"
+        );
+
+        assert_eq!(
+            context.replace_variables(
+                "{{var1}}/{{environment}}/{{service}}/{{path}}",
+                "env",
+                Some("test-path".into()),
+                Some("test-service".into()),
+            )?,
+            "var1/env/test-service/test-path"
+        );
+
+        match context.replace_variables("{{var}}", "env", None, None) {
+            Err(CliError::TemplateError(_)) => (),
+            _ => {
+                return Err(CliError::RuntimeError(
+                    "undefined variables should create an error".into(),
+                ))
+            }
+        }
+
+        match context.replace_variables("{var}}", "env", None, None) {
+            Err(CliError::TemplateError(_)) => (),
+            _ => {
+                return Err(CliError::RuntimeError(
+                    "incomplete templates should create an error".into(),
+                ))
+            }
+        }
+
+        Ok(())
+    }
 }

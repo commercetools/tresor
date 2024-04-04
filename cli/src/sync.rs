@@ -91,6 +91,12 @@ pub async fn sync_mappings(
                     let mut target_values = match read_target_values {
                         Ok(values) => values,
                         Err(ClientError::APIError { code, errors: _ }) if code == 404 => {
+                            println!(
+                                "{}",
+                                Console::warning(
+                                    "no value found at target, this will be a create operation"
+                                )
+                            );
                             HashMap::new()
                         }
                         Err(err) => {
@@ -101,13 +107,24 @@ pub async fn sync_mappings(
                         }
                     };
 
-                    target_values.insert(target.key.clone(), source_value.to_string());
+                    let source_value_with_variables = context.replace_variables(
+                        &source_value,
+                        &env.name,
+                        sync_args.context.path.clone(),
+                        sync_args.context.service.clone(),
+                    )?;
+
+                    target_values.insert(target.key.clone(), source_value_with_variables.clone());
 
                     let target_message_part = format!("{target_mount}/{target_path}");
                     let source_value_message_part = format!(
                         "{}XXXX",
                         Console::highlight(
-                            source_value.chars().into_iter().take(4).collect::<String>()
+                            source_value_with_variables
+                                .chars()
+                                .into_iter()
+                                .take(4)
+                                .collect::<String>()
                         )
                     );
 

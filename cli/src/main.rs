@@ -9,6 +9,7 @@ mod config;
 mod console;
 mod error;
 mod sync;
+mod template;
 mod vault;
 
 #[derive(Parser, Debug)]

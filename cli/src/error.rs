@@ -11,6 +11,7 @@ use vaultrs::{
 pub enum CliError {
     RuntimeError(String),
     VaultError(String),
+    TemplateError(String),
 }
 
 impl std::error::Error for CliError {}
@@ -20,6 +21,7 @@ impl fmt::Debug for CliError {
         match self {
             Self::RuntimeError(reason) => write!(f, "RuntimeError: {}", reason),
             Self::VaultError(reason) => write!(f, "VaultError: {}", reason),
+            Self::TemplateError(reason) => write!(f, "TemplateError: {}", reason),
         }
     }
 }
@@ -29,6 +31,7 @@ impl fmt::Display for CliError {
         match self {
             Self::RuntimeError(reason) => write!(f, "RuntimeError: {}", reason),
             Self::VaultError(reason) => write!(f, "VaultError: {}", reason),
+            Self::TemplateError(reason) => write!(f, "TemplateError: {}", reason),
         }
     }
 }
