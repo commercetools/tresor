@@ -246,6 +246,7 @@ mod test {
 
         let sync_args = SyncCommandArgs {
             apply: true,
+            show_values: true,
             context: VaultContextArgs {
                 env: VaultEnvArgs {
                     environment: "test".into(),

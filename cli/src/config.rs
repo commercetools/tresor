@@ -306,15 +306,15 @@ mod test {
             variables: Some(variables),
         };
 
-        assert_eq!(
-            context.replace_variables(
+        // missing path and service
+        assert!(context
+            .replace_variables(
                 "{{var1}}/{{environment}}/{{service}}/{{path}}",
                 "env",
                 None,
                 None,
-            )?,
-            "var1/env/default/default"
-        );
+            )
+            .is_err());
 
         assert_eq!(
             context.replace_variables(
