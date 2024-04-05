@@ -4,6 +4,7 @@ use clap::{command, Args, Parser, Subcommand};
 use config::{config_file_path, get_env, load_or_create_config, Config};
 use console::Console;
 use error::CliError;
+use json_to_table::json_to_table;
 
 mod config;
 mod console;
@@ -189,10 +190,19 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
                 vaultrs::kv2::read::<serde_json::Value>(&env.vault_client()?, &mount, &path)
                     .await?;
 
-            Console::highlight(serde_json::to_string_pretty(&value)?);
+            let value_table = json_to_table(&value).to_string();
+            println!("{}", Console::emph(value_table));
 
-            let metadata = vaultrs::kv2::read_metadata(&env.vault_client()?, &mount, &path).await?;
-            println!("metadata:\n{}", serde_json::to_string_pretty(&metadata)?);
+            let mut metadata =
+                vaultrs::kv2::read_metadata(&env.vault_client()?, &mount, &path).await?;
+            metadata.versions = HashMap::new();
+
+            println!(
+                "metadata:\n{}",
+                json_to_table(&serde_json::to_value(metadata)?)
+                    .collapse()
+                    .to_string()
+            );
 
             Ok(())
         }
@@ -215,7 +225,11 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
                 let set_response = env.vault()?.set_data(&mount, &path, value).await?;
                 println!(
                     "set response: {}",
-                    Console::highlight(serde_json::to_string_pretty(&set_response)?)
+                    Console::highlight(
+                        json_to_table(&serde_json::to_value(set_response)?)
+                            .collapse()
+                            .to_string()
+                    )
                 );
             } else {
                 println!("{}", Console::warning("only updating metadata"));
@@ -261,7 +275,11 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
 
             println!(
                 "set response: {}",
-                Console::highlight(serde_json::to_string_pretty(&set_response)?)
+                Console::highlight(
+                    json_to_table(&serde_json::to_value(set_response)?)
+                        .collapse()
+                        .to_string()
+                )
             );
             Ok(())
         }
