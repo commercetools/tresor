@@ -4,8 +4,8 @@ use clap::{command, Args, Parser, Subcommand};
 use config::{config_file_path, get_env, load_or_create_config, Config};
 use console::Console;
 use error::CliError;
-use json_to_table::json_to_table;
 
+use crate::console::json_to_table_string;
 mod config;
 mod console;
 mod error;
@@ -53,7 +53,7 @@ enum Commands {
     /// list paths in context
     List(VaultContextArgs),
     /// get values in context
-    Get(VaultContextArgs),
+    Get(GetCommandArgs),
     /// set values using the put method
     Set(SetCommandArgs),
     /// set values using the patch method
@@ -80,6 +80,16 @@ struct SyncCommandArgs {
 
     /// show the values that will be set, default is false, only the first characters are shown
     #[clap(long, env = "SYNC_SHOW_VALUES", default_value_t = false)]
+    show_values: bool,
+}
+
+#[derive(Debug, Args)]
+struct GetCommandArgs {
+    #[command(flatten)]
+    context: VaultContextArgs,
+
+    /// show the values returned, default is false, only the first characters are shown
+    #[clap(long, env = "GET_SHOW_VALUES", default_value_t = false)]
     show_values: bool,
 }
 
@@ -174,14 +184,14 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
             Ok(())
         }
         Commands::Get(args) => {
-            let env = get_env(&config, &args.env.environment).await?;
-            let context = env.get_context(&args.context)?;
+            let env = get_env(&config, &args.context.env.environment).await?;
+            let context = env.get_context(&args.context.context)?;
             let (mount, path) = context.mount_and_path(
                 &env.name,
                 config.mount_template,
                 config.path_template,
-                args.path.clone(),
-                args.service.clone(),
+                args.context.path.clone(),
+                args.context.service.clone(),
             )?;
 
             println!("{mount}/{path}:");
@@ -190,8 +200,7 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
                 vaultrs::kv2::read::<serde_json::Value>(&env.vault_client()?, &mount, &path)
                     .await?;
 
-            let value_table = json_to_table(&value).to_string();
-            println!("{}", Console::emph(value_table));
+            println!("{}", json_to_table_string(&value, !args.show_values)?);
 
             let mut metadata =
                 vaultrs::kv2::read_metadata(&env.vault_client()?, &mount, &path).await?;
@@ -199,9 +208,7 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
 
             println!(
                 "metadata:\n{}",
-                json_to_table(&serde_json::to_value(metadata)?)
-                    .collapse()
-                    .to_string()
+                json_to_table_string(&serde_json::to_value(metadata)?, false)?
             );
 
             Ok(())
@@ -225,11 +232,7 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
                 let set_response = env.vault()?.set_data(&mount, &path, value).await?;
                 println!(
                     "set response: {}",
-                    Console::highlight(
-                        json_to_table(&serde_json::to_value(set_response)?)
-                            .collapse()
-                            .to_string()
-                    )
+                    json_to_table_string(&serde_json::to_value(set_response)?, false)?
                 );
             } else {
                 println!("{}", Console::warning("only updating metadata"));
@@ -275,11 +278,7 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
 
             println!(
                 "set response: {}",
-                Console::highlight(
-                    json_to_table(&serde_json::to_value(set_response)?)
-                        .collapse()
-                        .to_string()
-                )
+                json_to_table_string(&serde_json::to_value(set_response)?, false)?
             );
             Ok(())
         }
