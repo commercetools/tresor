@@ -40,6 +40,13 @@ struct VaultContextArgs {
     /// path to use in the templates
     #[clap(short, long, env = "TRESOR_PATH")]
     path: Option<String>,
+
+    /// mount template to use, currently does nothing in sync command
+    #[clap(short, long, env = "TRESOR_MOUNT_TEMPLATE")]
+    mount_template: Option<String>,
+    /// path template to use, currently does nothing in sync command
+    #[clap(long, env = "TRESOR_PATH_TEMPLATE")]
+    path_template: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -165,13 +172,7 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
         Commands::List(args) => {
             let env = get_env(&config, &args.env.environment).await?;
             let context = env.get_context(&args.context)?;
-            let (mount, path) = context.mount_and_path(
-                &env.name,
-                config.mount_template,
-                config.path_template,
-                args.path.clone(),
-                args.service.clone(),
-            )?;
+            let (mount, path) = context.mount_and_path(args, &config)?;
 
             println!("listing secrets in {mount}/{path}:");
 
@@ -186,14 +187,7 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
         Commands::Get(args) => {
             let env = get_env(&config, &args.context.env.environment).await?;
             let context = env.get_context(&args.context.context)?;
-            let (mount, path) = context.mount_and_path(
-                &env.name,
-                config.mount_template,
-                config.path_template,
-                args.context.path.clone(),
-                args.context.service.clone(),
-            )?;
-
+            let (mount, path) = context.mount_and_path(&args.context, &config)?;
             println!("{mount}/{path}:");
 
             let value =
@@ -216,13 +210,7 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
         Commands::Set(set_args) => {
             let env = get_env(&config, &set_args.context.env.environment).await?;
             let context = env.get_context(&set_args.context.context)?;
-            let (mount, path) = context.mount_and_path(
-                &env.name,
-                config.mount_template.clone(),
-                config.path_template.clone(),
-                set_args.context.path.clone(),
-                set_args.context.service.clone(),
-            )?;
+            let (mount, path) = context.mount_and_path(&set_args.context, &config)?;
 
             // read json from file
             let data = tokio::fs::read(&set_args.input_file).await?;
@@ -254,13 +242,7 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
         Commands::Patch(patch_args) => {
             let env = get_env(&config, &patch_args.context.env.environment).await?;
             let context = env.get_context(&patch_args.context.context)?;
-            let (mount, path) = context.mount_and_path(
-                &env.name,
-                config.mount_template.clone(),
-                config.path_template.clone(),
-                patch_args.context.path.clone(),
-                patch_args.context.service.clone(),
-            )?;
+            let (mount, path) = context.mount_and_path(&patch_args.context, &config)?;
 
             // read json from file
             let data = tokio::fs::read(&patch_args.input_file).await?;
@@ -283,11 +265,9 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
             Ok(())
         }
         Commands::Sync(sync_args) => {
-            let env = &get_env(&config, &sync_args.context.env.environment).await?;
-            match config.mappings {
-                Some(mappings) => {
-                    crate::sync::sync_mappings(mappings, &env, sync_args, &config.default_owner)
-                        .await?;
+            match &config.mappings {
+                Some(_) => {
+                    crate::sync::sync_mappings(&sync_args, &config).await?;
                 }
                 None => println!("{}", Console::warning("no mappings configured")),
             };

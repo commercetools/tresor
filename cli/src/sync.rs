@@ -3,18 +3,15 @@ use std::collections::HashMap;
 use vaultrs::error::ClientError;
 
 use crate::{
-    config::{EnvironmentConfig, ValueMapping},
+    config::{get_env, Config},
     console::Console,
     error::CliError,
-    SyncCommandArgs,
+    SyncCommandArgs, VaultEnvArgs,
 };
 
-pub async fn sync_mappings(
-    mappings: Vec<ValueMapping>,
-    env: &EnvironmentConfig,
-    sync_args: &SyncCommandArgs,
-    default_owner: &str,
-) -> Result<(), CliError> {
+pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Result<(), CliError> {
+    let env = get_env(config, &sync_args.context.env.environment).await?;
+
     println!(
         "syncing environment {}, apply: {}",
         Console::highlight(&env.name),
@@ -35,7 +32,7 @@ pub async fn sync_mappings(
             Console::highlight(&context.name)
         );
 
-        for mapping in mappings.clone() {
+        for mapping in config.mappings.clone().unwrap_or_default() {
             if mapping.skip.unwrap_or(false) {
                 println!("{}: {mapping}", Console::highlight("skipping mapping"));
                 continue;
@@ -45,11 +42,17 @@ pub async fn sync_mappings(
                 (None, value) => value,
                 (Some(source_ref), None) => {
                     let (source_mount, source_path) = context.mount_and_path(
-                        &env.name,
-                        Some(source_ref.mount.to_string()),
-                        Some(source_ref.path.to_string()),
-                        sync_args.context.path.clone(),
-                        sync_args.context.service.clone(),
+                        &crate::VaultContextArgs {
+                            env: VaultEnvArgs {
+                                environment: env.name.to_string(),
+                            },
+                            context: context.name.clone(),
+                            service: sync_args.context.service.clone(),
+                            path: sync_args.context.path.clone(),
+                            mount_template: Some(source_ref.mount.clone()),
+                            path_template: Some(source_ref.path.clone()),
+                        },
+                        config,
                     )?;
                     let read_source_values = vaultrs::kv2::read::<HashMap<String, Option<String>>>(
                         vault_client,
@@ -80,11 +83,17 @@ pub async fn sync_mappings(
                     let target = mapping.target.clone();
 
                     let (target_mount, target_path) = context.mount_and_path(
-                        &env.name,
-                        Some(target.mount.to_string()),
-                        Some(target.path.to_string()),
-                        sync_args.context.path.clone(),
-                        sync_args.context.service.clone(),
+                        &crate::VaultContextArgs {
+                            env: VaultEnvArgs {
+                                environment: env.name.to_string(),
+                            },
+                            context: context.name.clone(),
+                            service: sync_args.context.service.clone(),
+                            path: sync_args.context.path.clone(),
+                            mount_template: Some(target.mount.clone()),
+                            path_template: Some(target.path.clone()),
+                        },
+                        config,
                     )?;
 
                     let target_key = target.key.clone();
@@ -156,7 +165,7 @@ pub async fn sync_mappings(
                         let metadata_response = crate::vault::set_metadata(
                             vault_client,
                             &sync_args.metadata,
-                            &default_owner,
+                            &config.default_owner,
                             &target_mount,
                             &target_path,
                         )
@@ -191,12 +200,12 @@ pub async fn sync_mappings(
 // the tests depend on the docker-compose setup in the project root
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, vec};
 
     use serde_json::json;
 
     use crate::{
-        config::{ContextConfig, ValueMapping, ValueRef},
+        config::{Config, ContextConfig, ValueMapping, ValueRef},
         error::CliError,
         sync::sync_mappings,
         MetadataArgs, SyncCommandArgs, VaultContextArgs, VaultEnvArgs,
@@ -212,8 +221,8 @@ mod test {
                 source: None,
                 value: Some("source value".into()),
                 target: ValueRef {
-                    mount: "{{service}}".into(),
-                    path: "{{path}}".into(),
+                    mount: "default".into(),
+                    path: "default".into(),
                     key: "test-field".into(),
                 },
                 skip: None,
@@ -221,13 +230,13 @@ mod test {
             ValueMapping {
                 value: None,
                 source: Some(ValueRef {
-                    mount: "{{service}}".into(),
-                    path: "{{path}}".into(),
+                    mount: "default".into(),
+                    path: "default".into(),
                     key: "test-field".into(),
                 }),
                 target: ValueRef {
-                    mount: "{{service}}".into(),
-                    path: "{{path}}/{{var}}".into(),
+                    mount: "default".into(),
+                    path: "var".into(),
                     key: "mapped-field".into(),
                 },
                 skip: None,
@@ -256,6 +265,8 @@ mod test {
                 context: "*".into(),
                 service: Some("secret".into()),
                 path: Some("test-path".into()),
+                mount_template: None,
+                path_template: None,
             },
             metadata: MetadataArgs {
                 metadata_rotation: Some(true),
@@ -265,7 +276,26 @@ mod test {
             },
         };
 
-        sync_mappings(mappings, &env, &sync_args, "test-owner").await?;
+        let mut mount_templates: HashMap<String, String> = HashMap::new();
+        mount_templates.insert("default".into(), "{{service}}".into());
+
+        let mut path_templates: HashMap<String, String> = HashMap::new();
+        path_templates.insert("default".into(), "{{path}}".into());
+        path_templates.insert("var".into(), "{{path}}/{{var}}".into());
+
+        sync_mappings(
+            &sync_args,
+            &Config {
+                default_owner: "test-owner".into(),
+                default_mount_template: Some("default".into()),
+                default_path_template: Some("default".into()),
+                mount_templates: Some(mount_templates),
+                path_templates: Some(path_templates),
+                environments: vec![env.clone()],
+                mappings: Some(mappings.clone()),
+            },
+        )
+        .await?;
 
         let value =
             vaultrs::kv2::read::<serde_json::Value>(&env.vault_client()?, "secret", "test-path")

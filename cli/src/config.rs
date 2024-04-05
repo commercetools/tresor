@@ -12,6 +12,7 @@ use crate::{
     error::CliError,
     template::track_context,
     vault::{create_client, Vault},
+    VaultContextArgs,
 };
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -69,20 +70,53 @@ impl ContextConfig {
 
     pub fn mount_and_path(
         &self,
-        env: &str,
-        mount_template: Option<String>,
-        path_template: Option<String>,
-        path: Option<String>,
-        service: Option<String>,
+        context_args: &VaultContextArgs,
+        config: &Config,
     ) -> Result<(String, String), CliError> {
+        let env = &context_args.env.environment;
+        let found_mount_template = config.mount_template(context_args.mount_template.clone());
+        let found_path_template = config.path_template(context_args.path_template.clone());
+
+        let mount_template = match (
+            context_args.mount_template.clone(),
+            found_mount_template.clone(),
+        ) {
+            (_, Some(template)) => template,
+            (arg, None) => {
+                return Err(CliError::CommandError(format!(
+                    "no template found for arg: {:?}, default: {:?}",
+                    arg,
+                    config.default_mount_template.clone()
+                )))
+            }
+        };
+
+        let path_template = match (
+            context_args.path_template.clone(),
+            found_path_template.clone(),
+        ) {
+            (_, Some(template)) => template,
+            (arg, None) => {
+                return Err(CliError::CommandError(format!(
+                    "no template found for arg: {:?}, default: {:?}",
+                    arg,
+                    config.default_path_template.clone()
+                )))
+            }
+        };
+
         let mount = self.replace_variables(
-            &mount_template.unwrap_or_default(),
+            &mount_template,
             env,
-            path.clone(),
-            service.clone(),
+            context_args.path.clone(),
+            context_args.service.clone(),
         )?;
-        let path =
-            self.replace_variables(&path_template.unwrap_or_default(), env, path, service)?;
+        let path = self.replace_variables(
+            &path_template,
+            env,
+            context_args.path.clone(),
+            context_args.service.clone(),
+        )?;
 
         Ok((mount, path))
     }
@@ -102,9 +136,9 @@ pub struct EnvironmentConfig {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ValueRef {
+    pub key: String,
     pub mount: String,
     pub path: String,
-    pub key: String,
 }
 
 impl Display for ValueRef {
@@ -203,10 +237,38 @@ impl EnvironmentConfig {
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     pub default_owner: String,
-    pub mount_template: Option<String>,
-    pub path_template: Option<String>,
+    pub default_mount_template: Option<String>,
+    pub default_path_template: Option<String>,
+    pub mount_templates: Option<HashMap<String, String>>,
+    pub path_templates: Option<HashMap<String, String>>,
     pub environments: Vec<EnvironmentConfig>,
     pub mappings: Option<Vec<ValueMapping>>,
+}
+
+impl Config {
+    pub fn mount_template(&self, name: Option<String>) -> Option<String> {
+        match name.or(self.default_mount_template.clone()) {
+            Some(key) => self
+                .mount_templates
+                .clone()
+                .unwrap_or_default()
+                .get(&key)
+                .cloned(),
+            None => None,
+        }
+    }
+
+    pub fn path_template(&self, name: Option<String>) -> Option<String> {
+        match name.or(self.default_path_template.clone()) {
+            Some(key) => self
+                .path_templates
+                .clone()
+                .unwrap_or_default()
+                .get(&key)
+                .cloned(),
+            None => None,
+        }
+    }
 }
 
 pub async fn config_file_path() -> Result<PathBuf, CliError> {
