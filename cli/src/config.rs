@@ -8,6 +8,7 @@ use tokio::{fs::File, io::AsyncWriteExt};
 use vaultrs::client::VaultClient;
 
 use crate::{
+    console::Console,
     error::CliError,
     template::track_context,
     vault::{create_client, Vault},
@@ -173,15 +174,18 @@ impl EnvironmentConfig {
                     Some(context)
                 } else if context_lowercase.contains(context_name) {
                     println!(
-                        "found context '{}' via partial match of '{}'",
-                        context.name, context_name
+                        "{}",
+                        Console::warning(format!(
+                            "found context '{}' via partial match of '{}'",
+                            context.name, context_name
+                        ))
                     );
                     Some(context)
                 } else {
                     None
                 }
             })
-            .ok_or(CliError::RuntimeError(format!(
+            .ok_or(CliError::CommandError(format!(
                 "context {} not found in environment {}, must be part of:\n{}",
                 context_name,
                 self.name,
@@ -253,7 +257,7 @@ pub async fn get_env(config: &Config, name: &str) -> Result<EnvironmentConfig, C
                 None
             }
         })
-        .ok_or(CliError::RuntimeError(format!(
+        .ok_or(CliError::CommandError(format!(
             "Environment {} not found",
             name
         )))?;
