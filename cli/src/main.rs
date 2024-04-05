@@ -172,7 +172,7 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
         Commands::List(args) => {
             let env = get_env(&config, &args.env.environment).await?;
             let context = env.get_context(&args.context)?;
-            let (mount, path) = context.mount_and_path(args, &config)?;
+            let (mount, path) = context.mount_and_path(&env, args, &config)?;
 
             println!("listing secrets in {mount}/{path}:");
 
@@ -187,7 +187,7 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
         Commands::Get(args) => {
             let env = get_env(&config, &args.context.env.environment).await?;
             let context = env.get_context(&args.context.context)?;
-            let (mount, path) = context.mount_and_path(&args.context, &config)?;
+            let (mount, path) = context.mount_and_path(&env, &args.context, &config)?;
             println!("{mount}/{path}:");
 
             let value =
@@ -210,7 +210,7 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
         Commands::Set(set_args) => {
             let env = get_env(&config, &set_args.context.env.environment).await?;
             let context = env.get_context(&set_args.context.context)?;
-            let (mount, path) = context.mount_and_path(&set_args.context, &config)?;
+            let (mount, path) = context.mount_and_path(&env, &set_args.context, &config)?;
 
             // read json from file
             let data = tokio::fs::read(&set_args.input_file).await?;
@@ -242,7 +242,7 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
         Commands::Patch(patch_args) => {
             let env = get_env(&config, &patch_args.context.env.environment).await?;
             let context = env.get_context(&patch_args.context.context)?;
-            let (mount, path) = context.mount_and_path(&patch_args.context, &config)?;
+            let (mount, path) = context.mount_and_path(&env, &patch_args.context, &config)?;
 
             // read json from file
             let data = tokio::fs::read(&patch_args.input_file).await?;

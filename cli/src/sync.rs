@@ -42,6 +42,7 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                 (None, value) => value,
                 (Some(source_ref), None) => {
                     let (source_mount, source_path) = context.mount_and_path(
+                        &env,
                         &crate::VaultContextArgs {
                             env: VaultEnvArgs {
                                 environment: env.name.to_string(),
@@ -83,6 +84,7 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                     let target = mapping.target.clone();
 
                     let (target_mount, target_path) = context.mount_and_path(
+                        &env,
                         &crate::VaultContextArgs {
                             env: VaultEnvArgs {
                                 environment: env.name.to_string(),

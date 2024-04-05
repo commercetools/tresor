@@ -70,10 +70,10 @@ impl ContextConfig {
 
     pub fn mount_and_path(
         &self,
+        env: &EnvironmentConfig,
         context_args: &VaultContextArgs,
         config: &Config,
     ) -> Result<(String, String), CliError> {
-        let env = &context_args.env.environment;
         let found_mount_template = config.mount_template(context_args.mount_template.clone());
         let found_path_template = config.path_template(context_args.path_template.clone());
 
@@ -107,13 +107,13 @@ impl ContextConfig {
 
         let mount = self.replace_variables(
             &mount_template,
-            env,
+            &env.name,
             context_args.path.clone(),
             context_args.service.clone(),
         )?;
         let path = self.replace_variables(
             &path_template,
-            env,
+            &env.name,
             context_args.path.clone(),
             context_args.service.clone(),
         )?;
