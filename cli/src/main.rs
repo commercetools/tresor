@@ -57,6 +57,7 @@ enum Commands {
     Set(SetCommandArgs),
     /// set values using the patch method
     Patch(SetCommandArgs),
+    /// show current config without tokens
     Config,
     /// print the current token of the environment
     Token(VaultEnvArgs),
