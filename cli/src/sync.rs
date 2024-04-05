@@ -87,6 +87,8 @@ pub async fn sync_mappings(
                         sync_args.context.service.clone(),
                     )?;
 
+                    let target_message_part = format!("{target_mount}/{target_path}");
+
                     let read_target_values = vaultrs::kv2::read::<HashMap<String, String>>(
                         vault_client,
                         &target_mount,
@@ -107,7 +109,7 @@ pub async fn sync_mappings(
                         }
                         Err(err) => {
                             return Err(CliError::RuntimeError(format!(
-                                "unable to read target: {target}: {}",
+                                "unable to read target: {target_message_part}: {}",
                                 err
                             )))
                         }
@@ -122,17 +124,20 @@ pub async fn sync_mappings(
 
                     target_values.insert(target.key.clone(), source_value_with_variables.clone());
 
-                    let target_message_part = format!("{target_mount}/{target_path}");
-                    let source_value_message_part = format!(
-                        "{}XXXX",
-                        Console::highlight(
-                            source_value_with_variables
-                                .chars()
-                                .into_iter()
-                                .take(4)
-                                .collect::<String>()
+                    let source_value_message_part = if sync_args.show_values {
+                        format!("{}", Console::emph(source_value_with_variables.clone()))
+                    } else {
+                        format!(
+                            "{}XXXX",
+                            Console::highlight(
+                                source_value_with_variables
+                                    .chars()
+                                    .into_iter()
+                                    .take(4)
+                                    .collect::<String>()
+                            )
                         )
-                    );
+                    };
 
                     if sync_args.apply {
                         let set_response = vault
@@ -140,7 +145,10 @@ pub async fn sync_mappings(
                             .await;
 
                         set_response.map_err(|e| {
-                            CliError::RuntimeError(format!("unable to set target: {target}: {}", e))
+                            CliError::RuntimeError(format!(
+                                "unable to set target: {target_message_part}: {}",
+                                e
+                            ))
                         })?;
 
                         let metadata_response = crate::vault::set_metadata(

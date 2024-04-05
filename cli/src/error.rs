@@ -7,31 +7,40 @@ use vaultrs::{
     client::VaultClientSettingsBuilderError, error::ClientError,
 };
 
+use crate::console::Console;
+
 #[derive(Serialize, Deserialize, Clone)]
 pub enum CliError {
     RuntimeError(String),
     VaultError(String),
     TemplateError(String),
+    CommandError(String),
+    AuthError(String),
 }
 
 impl std::error::Error for CliError {}
 
 impl fmt::Debug for CliError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::RuntimeError(reason) => write!(f, "RuntimeError: {}", reason),
-            Self::VaultError(reason) => write!(f, "VaultError: {}", reason),
-            Self::TemplateError(reason) => write!(f, "TemplateError: {}", reason),
-        }
+        write!(f, "{}", self)
     }
 }
 
 impl fmt::Display for CliError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::RuntimeError(reason) => write!(f, "RuntimeError: {}", reason),
-            Self::VaultError(reason) => write!(f, "VaultError: {}", reason),
-            Self::TemplateError(reason) => write!(f, "TemplateError: {}", reason),
+            Self::RuntimeError(reason) => {
+                write!(
+                    f,
+                    "{}: {}",
+                    Console::emph("general error"),
+                    Console::error(reason)
+                )
+            }
+            Self::VaultError(reason) => write!(f, "vault error: {}", Console::error(reason)),
+            Self::TemplateError(reason) => write!(f, "template error: {}", Console::error(reason)),
+            Self::CommandError(reason) => write!(f, "command error: {}", Console::error(reason)),
+            Self::AuthError(reason) => write!(f, "auth error: {}", Console::error(reason)),
         }
     }
 }

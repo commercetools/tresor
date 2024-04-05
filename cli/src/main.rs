@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use clap::{command, Args, Parser, Subcommand};
-use config::{config_file_path, get_env, load_or_create_config};
+use config::{config_file_path, get_env, load_or_create_config, Config};
 use console::Console;
 use error::CliError;
 
@@ -75,6 +75,10 @@ struct SyncCommandArgs {
 
     #[command(flatten)]
     metadata: MetadataArgs,
+
+    /// show the values that will be set, default is false, only the first characters are shown
+    #[clap(long, env = "SYNC_SHOW_VALUES", default_value_t = false)]
+    show_values: bool,
 }
 
 #[derive(Debug, Args)]
@@ -108,7 +112,11 @@ struct MetadataArgs {
 async fn main() -> Result<(), CliError> {
     let args = &TresorArgs::parse();
     let config = load_or_create_config().await?;
+    let run = run_command(args, config).await?;
+    Ok(run)
+}
 
+async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> {
     match &args.command {
         Commands::Login { vault, role } => {
             vault::login(&config, &vault.environment, role.to_owned()).await?;

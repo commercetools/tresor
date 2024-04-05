@@ -23,4 +23,8 @@ impl Console {
             .apply_to(text)
             .to_string()
     }
+
+    pub fn emph<T: Display>(text: T) -> String {
+        Style::new().white().apply_to(text).to_string()
+    }
 }

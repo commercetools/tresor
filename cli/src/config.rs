@@ -31,11 +31,14 @@ impl ContextConfig {
         let mut replacement_values: HashMap<String, String> = HashMap::new();
         replacement_values.insert("context".into(), self.name.clone());
         replacement_values.insert("environment".into(), env.to_string());
-        replacement_values.insert(
-            "service".into(),
-            service.clone().unwrap_or("default".into()),
-        );
-        replacement_values.insert("path".into(), path.clone().unwrap_or("default".into()));
+
+        service.iter().for_each(|service_name| {
+            replacement_values.insert("service".into(), service_name.to_string());
+        });
+
+        path.iter().for_each(|path_name| {
+            replacement_values.insert("path".into(), path_name.to_string());
+        });
 
         for (key, value) in self.variables.clone().unwrap_or_default() {
             replacement_values.insert(key, value);
@@ -56,7 +59,7 @@ impl ContextConfig {
 
         if !all_undefined.is_empty() {
             return Err(CliError::TemplateError(format!(
-                "found undefined values in template: {all_undefined:?}"
+                "found undefined values in template: {all_undefined:?}, you might need to specify them in the command options (e.g. --service)"
             )));
         }
 
@@ -145,7 +148,7 @@ impl EnvironmentConfig {
         let now = chrono::Utc::now().timestamp() as u64;
         match (self.token.clone(), self.token_valid_until) {
             (Some(token), Some(valid_until)) if valid_until > now => Ok(token),
-            _ => Err(CliError::RuntimeError(
+            _ => Err(CliError::AuthError(
                 "No valid token found for this environment, you need to login again".to_string(),
             )),
         }

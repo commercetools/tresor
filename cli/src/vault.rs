@@ -287,8 +287,8 @@ async fn vault_callback(
         .await?;
 
     if !resp.status().is_success() {
-        return Err(CliError::VaultError(format!(
-            "Vault returned an error: {}, {}",
+        return Err(CliError::AuthError(format!(
+            "vault returned an error in auth callback: {}, {}",
             resp.status(),
             resp.text().await?
         )));
@@ -367,7 +367,5 @@ pub async fn login(
     }
 
     handle.stop(true).await;
-    Err(CliError::RuntimeError(Console::error(
-        "Authentication failed",
-    )))
+    Err(CliError::AuthError(Console::error("authentication failed")))
 }
