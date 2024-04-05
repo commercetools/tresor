@@ -37,7 +37,7 @@ struct VaultContextArgs {
     /// service to use in the templates
     #[clap(short, long, env = "TRESOR_SERVICE")]
     service: Option<String>,
-    /// path to use in the templates
+    /// path to use in the templates, can be '.' list on the current mount
     #[clap(short, long, env = "TRESOR_PATH")]
     path: Option<String>,
 
