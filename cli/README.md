@@ -82,7 +82,7 @@ environments:
 mappings:
   - source: null
       mount: kv2/repo/{{service}}
-      path: "{{environment}}/{{context}}/{{path}}-secret"
+      path: "{{environment}}/{{context}}/{{ path|replace("-", "_") }}-secret"
       key: SECRET_FIELD
     # or instead of source
     # value: "{{foo}}-secret"
