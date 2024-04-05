@@ -53,7 +53,7 @@ impl ContextConfig {
 
         if rendered.contains("{") || rendered.contains("}") {
             return Err(CliError::TemplateError(format!(
-                "curly braces found after template replace, this is considered an error: {rendered}"
+                "curly braces found after template replace, this is considered an error: {rendered}, template: {template}"
             )));
         }
 
@@ -61,7 +61,7 @@ impl ContextConfig {
 
         if !all_undefined.is_empty() {
             return Err(CliError::TemplateError(format!(
-                "found undefined values in template: {all_undefined:?}, you might need to specify them in the command options (e.g. --service)"
+                "found undefined values: {all_undefined:?} in template {template}, you might need to specify them in the command options (e.g. --service, --path)"
             )));
         }
 
