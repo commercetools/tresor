@@ -51,11 +51,16 @@ tresor token env
 # this will list kv2/repo/some_service/env/some_path/prod1
 tresor list env prod1 -s some_service
 
-# this will get kv2/repo/some_service/env/some_path/prod1/some_path
-tresor get env prod1 -s some_service -p /some_path
+# this will get kv2/repo/some_service/env/some_path/prod1/.
+tresor list env prod1 -s some_service -p .
 
-# check value mappings
-tresor sync env
+# this will get kv2/repo/some_service/env/some_path/prod1/some_path
+tresor get env prod1 -s some_service -p some_path
+
+# check value mappings in context prod1
+tresor sync env prod1
+# check value mappings all contexts
+tresor sync env *
 
 # apply value mappings including metadata
 tresor sync env --apply --metadata-rotation=true
@@ -65,32 +70,42 @@ tresor sync env --apply --metadata-rotation=true
 #### Config
 
 ```yaml
+# default owner for metadata
 defaultOwner: my-team
-# templates for read and set
-mountTemplate: kv2/repo/{{service}}
-pathTemplate: "{{environment}}/{{path}}/{{context}}"
+# default mount template if not specified in command
+defaultMountTemplate: "default"
+# default path template if not specified in command
+defaultPathTemplate: "default"
+
+# named templates
+mountTemplates:
+  default: kv2/repo/{{service}}
+  other: kv2/other-repo/{{service}}
+pathTemplates:
+  default: "{{environment}}/{{path}}/{{context}}"
+  replaced: "{{environment}}/{{context}}/{{ path|replace("-", "_") }}-secret"
+  variable: "{{foo}}/{{context}}/{{path}}-secret"
 environments:
   - name: env
     vaultAddress: http://localhost:8200
     contexts:
-      - name: production
+      - name: prod1
         variables:
-          alias: prod1
           foo: bar
     authMount: null
 # mappings to sync between different mounts / paths
 mappings:
   - source: null
-      mount: kv2/repo/{{service}}
-      path: "{{environment}}/{{context}}/{{ path|replace("-", "_") }}-secret"
+      mount: default
+      path: replaced
       key: SECRET_FIELD
-    # or instead of source
+    # or instead of source:
     # value: "{{foo}}-secret"
     target:
-      mount: kv2/other-repo/{{service}}
-      path: "{{alias}}/{{context}}/{{path}}-secret"
+      mount: other
+      path: variable
       key: OTHER_FIELD
-    # skip processing this mapping
+    # skip processing this mapping:
     # skip: false
 ```
 
