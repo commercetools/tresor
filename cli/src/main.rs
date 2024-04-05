@@ -92,6 +92,10 @@ struct SetCommandArgs {
 
     #[command(flatten)]
     metadata: MetadataArgs,
+
+    /// only metadata will be set
+    #[clap(long, env = "TRESOR_METADATA_ONLY", default_value_t = false)]
+    metadata_only: bool,
 }
 
 #[derive(Debug, Args)]
@@ -207,7 +211,16 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
             let data = tokio::fs::read(&set_args.input_file).await?;
             let value: HashMap<String, String> = serde_json::from_slice(&data)?;
 
-            let set_response = env.vault()?.set_data(&mount, &path, value).await?;
+            if !set_args.metadata_only {
+                let set_response = env.vault()?.set_data(&mount, &path, value).await?;
+                println!(
+                    "set response: {}",
+                    Console::highlight(serde_json::to_string_pretty(&set_response)?)
+                );
+            } else {
+                println!("{}", Console::warning("only updating metadata"));
+            };
+
             crate::vault::set_metadata(
                 &env.vault_client()?,
                 &set_args.metadata,
@@ -217,10 +230,8 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
             )
             .await?;
 
-            println!(
-                "set response: {}",
-                Console::highlight(serde_json::to_string_pretty(&set_response)?)
-            );
+            println!("{}", Console::success("metadata updated"));
+
             Ok(())
         }
         Commands::Patch(patch_args) => {
