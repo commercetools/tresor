@@ -7,28 +7,40 @@ use vaultrs::{
     client::VaultClientSettingsBuilderError, error::ClientError,
 };
 
+use crate::console::Console;
+
 #[derive(Serialize, Deserialize, Clone)]
 pub enum CliError {
     RuntimeError(String),
     VaultError(String),
+    TemplateError(String),
+    CommandError(String),
+    AuthError(String),
 }
 
 impl std::error::Error for CliError {}
 
 impl fmt::Debug for CliError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::RuntimeError(reason) => write!(f, "RuntimeError: {}", reason),
-            Self::VaultError(reason) => write!(f, "VaultError: {}", reason),
-        }
+        write!(f, "{}", self)
     }
 }
 
 impl fmt::Display for CliError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::RuntimeError(reason) => write!(f, "RuntimeError: {}", reason),
-            Self::VaultError(reason) => write!(f, "VaultError: {}", reason),
+            Self::RuntimeError(reason) => {
+                write!(
+                    f,
+                    "{}: {}",
+                    Console::emph("general error"),
+                    Console::error(reason)
+                )
+            }
+            Self::VaultError(reason) => write!(f, "vault error: {}", Console::error(reason)),
+            Self::TemplateError(reason) => write!(f, "template error: {}", Console::error(reason)),
+            Self::CommandError(reason) => write!(f, "command error: {}", Console::error(reason)),
+            Self::AuthError(reason) => write!(f, "auth error: {}", Console::error(reason)),
         }
     }
 }
@@ -71,6 +83,12 @@ impl From<serde_yaml::Error> for CliError {
 
 impl From<SetSecretMetadataRequestBuilderError> for CliError {
     fn from(error: SetSecretMetadataRequestBuilderError) -> Self {
+        Self::RuntimeError(error.to_string())
+    }
+}
+
+impl From<minijinja::Error> for CliError {
+    fn from(error: minijinja::Error) -> Self {
         Self::RuntimeError(error.to_string())
     }
 }

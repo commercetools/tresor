@@ -13,6 +13,7 @@ use vaultrs::{
 
 use crate::{
     config::{get_env, load_or_create_config, write_token, Config, EnvironmentConfig},
+    console::Console,
     error::CliError,
     MetadataArgs,
 };
@@ -209,9 +210,9 @@ async fn patch<T: DeserializeOwned>(
 }
 
 pub async fn set_metadata(
-    config: &Config,
-    env: &EnvironmentConfig,
+    client: &VaultClient,
     metadata: &MetadataArgs,
+    default_owner: &str,
     mount: &str,
     path: &str,
 ) -> Result<(), CliError> {
@@ -223,7 +224,7 @@ pub async fn set_metadata(
         metadata
             .metadata_owner
             .clone()
-            .unwrap_or(config.default_owner.clone()),
+            .unwrap_or(default_owner.to_string()),
     );
 
     if metadata.metadata_rotation.unwrap_or(false) {
@@ -234,21 +235,22 @@ pub async fn set_metadata(
         custom_metadata.insert("mustRotate".into(), "true".into());
         custom_metadata.insert(
             "lastRotation".into(),
-            Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
+            metadata
+                .metadata_rotation_date
+                .clone()
+                .unwrap_or_else(|| Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string())
+                .into(),
         );
     } else {
-        println!("not setting rotation metadata (see command options)")
+        println!(
+            "{}",
+            Console::warning("not setting rotation metadata (see command options)")
+        )
     }
 
     metadata_request.custom_metadata(custom_metadata);
 
-    vaultrs::kv2::set_metadata(
-        &env.vault_client()?,
-        &mount,
-        &path,
-        Some(&mut metadata_request),
-    )
-    .await?;
+    vaultrs::kv2::set_metadata(client, &mount, &path, Some(&mut metadata_request)).await?;
     Ok(())
 }
 
@@ -285,8 +287,8 @@ async fn vault_callback(
         .await?;
 
     if !resp.status().is_success() {
-        return Err(CliError::VaultError(format!(
-            "Vault returned an error: {}, {}",
+        return Err(CliError::AuthError(format!(
+            "vault returned an error in auth callback: {}, {}",
             resp.status(),
             resp.text().await?
         )));
@@ -335,7 +337,7 @@ pub async fn login(
 
         match auth_response.as_ref() {
             Some(auth) => {
-                println!("token received");
+                println!("{}", Console::success("token received"));
                 let mut config = load_or_create_config().await?;
                 write_token(
                     &mut config,
@@ -352,15 +354,18 @@ pub async fn login(
         tries += 1;
 
         if (tries % 10) == 0 {
-            println!("waiting for callback for {tries} seconds");
+            println!(
+                "{}",
+                Console::highlight("waiting for callback for {tries} seconds")
+            );
         }
 
         if tries > 60 {
-            println!("timeout waiting for callback");
+            println!("{}", Console::error("timeout waiting for callback"));
             break;
         }
     }
 
     handle.stop(true).await;
-    Err(CliError::RuntimeError("Authentication failed".to_string()))
+    Err(CliError::AuthError(Console::error("authentication failed")))
 }
