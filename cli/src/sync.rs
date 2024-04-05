@@ -33,9 +33,25 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
         );
 
         for mapping in config.mappings.clone().unwrap_or_default() {
-            if mapping.skip.unwrap_or(false) {
-                println!("{}: {mapping}", Console::highlight("skipping mapping"));
-                continue;
+            match mapping.when.clone() {
+                Some(expression) => {
+                    let result = context.eval_with_variables(
+                        &expression,
+                        &env.name,
+                        sync_args.context.path.clone(),
+                        sync_args.context.service.clone(),
+                    )?;
+                    if !result {
+                        println!(
+                            "{}",
+                            Console::highlight(format!(
+                                "skipping mapping: {mapping}, 'when' expression is false"
+                            ))
+                        );
+                        continue;
+                    }
+                }
+                None => (),
             }
 
             let source_value = match (mapping.source.clone(), mapping.value.clone()) {
@@ -191,7 +207,7 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                         )
                     }
                 }
-                None => println!("no source value found for {mapping:?}"),
+                None => println!("no source value found for {mapping}"),
             }
         }
     }
@@ -227,7 +243,7 @@ mod test {
                     path: "default".into(),
                     key: "test-field".into(),
                 },
-                skip: None,
+                when: None,
             },
             ValueMapping {
                 value: None,
@@ -241,7 +257,7 @@ mod test {
                     path: "var".into(),
                     key: "mapped-field".into(),
                 },
-                skip: None,
+                when: None,
             },
         ];
 

@@ -105,8 +105,8 @@ mappings:
       mount: other
       path: variable
       key: OTHER_FIELD
-    # skip processing this mapping:
-    # skip: false
+    # conditionally process this mapping, this can be a jinja expression
+    # when: false
 ```
 
 Note that you can use the context variables and the `service` and `path` args in the mount and path templates.

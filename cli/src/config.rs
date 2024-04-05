@@ -23,13 +23,12 @@ pub struct ContextConfig {
 }
 
 impl ContextConfig {
-    pub fn replace_variables(
+    fn variables_map(
         &self,
-        template: &str,
         env: &str,
         path: Option<String>,
         service: Option<String>,
-    ) -> Result<String, CliError> {
+    ) -> HashMap<String, String> {
         let mut replacement_values: HashMap<String, String> = HashMap::new();
         replacement_values.insert("context".into(), self.name.clone());
         replacement_values.insert("environment".into(), env.to_string());
@@ -45,7 +44,32 @@ impl ContextConfig {
         for (key, value) in self.variables.clone().unwrap_or_default() {
             replacement_values.insert(key, value);
         }
+        replacement_values
+    }
 
+    pub fn eval_with_variables(
+        &self,
+        expression: &str,
+        environment_name: &str,
+        path: Option<String>,
+        service: Option<String>,
+    ) -> Result<bool, CliError> {
+        let env = Environment::new();
+        let expression = env.compile_expression(expression)?;
+        let replacement_values = self.variables_map(environment_name, path, service);
+
+        let result = expression.eval(replacement_values)?;
+        Ok(result.is_true())
+    }
+
+    pub fn replace_variables(
+        &self,
+        template: &str,
+        env: &str,
+        path: Option<String>,
+        service: Option<String>,
+    ) -> Result<String, CliError> {
+        let replacement_values = self.variables_map(env, path, service);
         let (variables, undefined) = track_context(replacement_values.into());
 
         let env = Environment::new();
@@ -153,21 +177,21 @@ pub struct ValueMapping {
     pub source: Option<ValueRef>,
     pub value: Option<String>,
     pub target: ValueRef,
-    pub skip: Option<bool>,
+    pub when: Option<String>,
 }
 
 impl Display for ValueMapping {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} -> {} (skip: {})",
+            "{} -> {} (when: {})",
             self.source
                 .clone()
                 .map(|value_ref| value_ref.to_string())
                 .or(self.value.clone())
                 .unwrap_or("-".into()),
             self.target.to_string(),
-            self.skip.unwrap_or(false)
+            self.when.clone().unwrap_or("-".into())
         )
     }
 }
