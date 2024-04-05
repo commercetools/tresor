@@ -87,7 +87,9 @@ pub async fn sync_mappings(
                         sync_args.context.service.clone(),
                     )?;
 
-                    let target_message_part = format!("{target_mount}/{target_path}");
+                    let target_key = target.key.clone();
+
+                    let target_message_part = format!("{target_mount}/{target_path}#{target_key}");
 
                     let read_target_values = vaultrs::kv2::read::<HashMap<String, String>>(
                         vault_client,
