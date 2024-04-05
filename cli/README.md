@@ -8,6 +8,7 @@ an opinionated vault cli
 - mount and path templating
 - environment token helper
 - metadata support
+- sync between paths
 
 tresor cli is not a vault cli wrapper, it is more like a subset of the original vault cli
 
@@ -39,7 +40,7 @@ Options:
 ### Examples
 
 ```sh
-# first run will create a config, add you environments there
+# first run will create a config, add your environments there
 tresor config
 tresor login env
 tresor token env
