@@ -13,21 +13,23 @@ tresor cli is not a vault cli wrapper, it is more like a subset of the original 
 
 ### Install
 
-currently you need to build from source, see [install.sh](install.sh)
+currently you need to build from source, use `cargo install` or see [install.sh](install.sh)
 
 ### Usage
 
-```
+```sh
 Usage: tresor <COMMAND>
 
 Commands:
-  login
-  list
-  get
-  set
-  config
-  token        print the current token of the environment
-  help         Print this message or the help of the given subcommand(s)
+  login   login and store the token in the environment config
+  list    list paths in context
+  get     get values in context
+  set     set values using the put method
+  patch   set values using the patch method
+  config  show current config without tokens
+  token   print the current token of the environment
+  sync    sync the value mappings in the environment configuration
+  help    Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
@@ -36,7 +38,7 @@ Options:
 
 ### Examples
 
-```
+```sh
 # first run will create a config, add you environments there
 tresor config
 tresor login env
@@ -56,7 +58,7 @@ tresor get env prod1 -s some_service -p /some_path
 tresor sync env
 
 # apply value mappings including metadata
-tresor sync prod --apply --metadata-rotation=true
+tresor sync env --apply --metadata-rotation=true
 ...
 ```
 
@@ -64,24 +66,34 @@ tresor sync prod --apply --metadata-rotation=true
 
 ```yaml
 defaultOwner: my-team
+# templates for read and set
 mountTemplate: kv2/repo/{{service}}
-pathTemplate: "{{environment}}/some_path/{{context}}"
+pathTemplate: "{{environment}}/{{path}}/{{context}}"
 environments:
   - name: env
-    vaultAddress: http://localhost:8250
+    vaultAddress: http://localhost:8200
     contexts:
-      - prod1
-    # allows to sync between values
-    mappings:
-      - source:
-          mount: kv2/repo/something
-          path: some-path
-          key: some-key
-        # or instead of source:
-        # value: some_value
-        target:
-          mount: kv2/repo/other
-          path: other-path
-          key: other-key
-        # skip: true
+      - name: production
+        variables:
+          alias: prod1
+          foo: bar
+    authMount: null
+# mappings to sync between different mounts / paths
+mappings:
+  - source: null
+      mount: kv2/repo/{{service}}
+      path: "{{environment}}/{{context}}/{{path}}-secret"
+      key: SECRET_FIELD
+    # or instead of source
+    # value: "{{foo}}-secret"
+    target:
+      mount: kv2/other-repo/{{service}}
+      path: "{{alias}}/{{context}}/{{path}}-secret"
+      key: OTHER_FIELD
+    # skip processing this mapping
+    # skip: false
 ```
+
+Note that you can use the context variables and the `service` and `path` args in the mount and path templates.
+
+`tresor` is using [minijinja](https://github.com/mitsuhiko/minijinja) for templating.
