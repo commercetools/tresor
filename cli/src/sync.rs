@@ -54,46 +54,49 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                 None => (),
             }
 
-            let source_value = match (mapping.source.clone(), mapping.value.clone()) {
-                (None, value) => value,
-                (Some(source_ref), None) => {
-                    let (source_mount, source_path) = context.mount_and_path(
-                        &env,
-                        &crate::VaultContextArgs {
-                            env: VaultEnvArgs {
-                                environment: env.name.to_string(),
+            let (source_value, source_message_part) =
+                match (mapping.source.clone(), mapping.value.clone()) {
+                    (None, value) => (value, None),
+                    (Some(source_ref), None) => {
+                        let (source_mount, source_path) = context.mount_and_path(
+                            &env,
+                            &crate::VaultContextArgs {
+                                env: VaultEnvArgs {
+                                    environment: env.name.to_string(),
+                                },
+                                context: context.name.clone(),
+                                service: sync_args.context.service.clone(),
+                                path: sync_args.context.path.clone(),
+                                mount_template: Some(source_ref.mount.clone()),
+                                path_template: Some(source_ref.path.clone()),
                             },
-                            context: context.name.clone(),
-                            service: sync_args.context.service.clone(),
-                            path: sync_args.context.path.clone(),
-                            mount_template: Some(source_ref.mount.clone()),
-                            path_template: Some(source_ref.path.clone()),
-                        },
-                        config,
-                    )?;
-                    let read_source_values = vaultrs::kv2::read::<HashMap<String, Option<String>>>(
-                        vault_client,
-                        &source_mount,
-                        &source_path,
-                    )
-                    .await;
+                            config,
+                        )?;
+                        let read_source_values = vaultrs::kv2::read::<
+                            HashMap<String, Option<String>>,
+                        >(
+                            vault_client, &source_mount, &source_path
+                        )
+                        .await;
 
-                    let source_values = read_source_values.map_err(|e| {
-                        CliError::RuntimeError(format!(
-                            "unable to read source: {source_ref}: {}",
-                            e
-                        ))
-                    })?;
+                        let source_values = read_source_values.map_err(|e| {
+                            CliError::RuntimeError(format!(
+                                "unable to read source: {source_ref}: {}",
+                                e
+                            ))
+                        })?;
 
-                    let source_value = source_values.get(&source_ref.key).unwrap_or(&None);
-                    source_value.clone()
-                }
-                _ => {
-                    return Err(CliError::RuntimeError(Console::error(
-                        "invalid source mapping",
-                    )))
-                }
-            };
+                        let source_value = source_values.get(&source_ref.key).unwrap_or(&None);
+                        let source_message_part =
+                            format!("{source_mount}/{source_path}#{}", source_ref.key.clone());
+                        (source_value.clone(), Some(source_message_part))
+                    }
+                    _ => {
+                        return Err(CliError::RuntimeError(Console::error(
+                            "invalid source mapping",
+                        )))
+                    }
+                };
 
             match source_value {
                 Some(source_value) => {
@@ -168,6 +171,9 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                         )
                     };
 
+                    let message =
+                        format!("{target_message_part}, with value: {source_value_message_part} from source: {source_message_part:?}");
+
                     if sync_args.apply {
                         let set_response = vault
                             .set_data(&target_mount, &target_path, target_values.clone())
@@ -196,15 +202,9 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                             ))
                         })?;
 
-                        println!(
-                            "{} {target_message_part}, with value: {source_value_message_part}",
-                            Console::success("updated")
-                        )
+                        println!("{} {message}", Console::success("updated"))
                     } else {
-                        println!(
-                            "{} {target_message_part} with value: {source_value_message_part}",
-                            Console::warning("would update")
-                        )
+                        println!("{} {message}", Console::warning("would update"))
                     }
                 }
                 None => println!("no source value found for {mapping}"),
