@@ -172,7 +172,7 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                     };
 
                     let message =
-                        format!("{target_message_part}, with value: {source_value_message_part} from source: {source_message_part:?}");
+                        format!("{target_message_part}, with value: {source_value_message_part} from source: {}", source_message_part.unwrap_or("config value".into()));
 
                     if sync_args.apply {
                         let set_response = vault
