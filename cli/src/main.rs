@@ -82,9 +82,6 @@ struct SyncCommandArgs {
     #[clap(long, env = "SYNC_APPLY", default_value_t = false)]
     apply: bool,
 
-    #[command(flatten)]
-    metadata: MetadataArgs,
-
     /// show the values that will be set, default is false, only the first characters are shown
     #[clap(long, env = "SYNC_SHOW_VALUES", default_value_t = false)]
     show_values: bool,
@@ -226,7 +223,7 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
                 println!("{}", Console::warning("only updating metadata"));
             };
 
-            crate::vault::set_metadata(
+            crate::vault::set_metadata_from_args(
                 &env.vault_client()?,
                 &set_args.metadata,
                 &config.default_owner,
@@ -249,7 +246,7 @@ async fn run_command(args: &TresorArgs, config: Config) -> Result<(), CliError> 
             let value: HashMap<String, String> = serde_json::from_slice(&data)?;
 
             let set_response = env.vault()?.patch_data(&mount, &path, value).await?;
-            crate::vault::set_metadata(
+            crate::vault::set_metadata_from_args(
                 &env.vault_client()?,
                 &patch_args.metadata,
                 &config.default_owner,

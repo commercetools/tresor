@@ -186,10 +186,21 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                             ))
                         })?;
 
+                        let mut metadata = config.default_metadata.clone().unwrap_or_default();
+                        metadata.extend(mapping.metadata.clone().unwrap_or_default());
+
+                        for (_, value) in metadata.iter_mut() {
+                            *value = context.replace_variables(
+                                &value,
+                                &env.name,
+                                sync_args.context.path.clone(),
+                                sync_args.context.service.clone(),
+                            )?;
+                        }
+
                         let metadata_response = crate::vault::set_metadata(
                             vault_client,
-                            &sync_args.metadata,
-                            &config.default_owner,
+                            metadata,
                             &target_mount,
                             &target_path,
                         )
@@ -226,7 +237,8 @@ mod test {
         config::{Config, ContextConfig, ValueMapping, ValueRef},
         error::CliError,
         sync::sync_mappings,
-        MetadataArgs, SyncCommandArgs, VaultContextArgs, VaultEnvArgs,
+        vault::now_date_string,
+        SyncCommandArgs, VaultContextArgs, VaultEnvArgs,
     };
 
     #[tokio::test]
@@ -244,6 +256,7 @@ mod test {
                     key: "test-field".into(),
                 },
                 when: None,
+                metadata: None,
             },
             ValueMapping {
                 value: None,
@@ -258,6 +271,7 @@ mod test {
                     key: "mapped-field".into(),
                 },
                 when: None,
+                metadata: Some(variables.clone()),
             },
         ];
 
@@ -286,12 +300,6 @@ mod test {
                 mount_template: None,
                 path_template: None,
             },
-            metadata: MetadataArgs {
-                metadata_rotation: Some(true),
-                metadata_owner: None,
-                metadata_max_ttl: None,
-                metadata_rotation_date: Some("2024-04-04T10:10:10.000Z".into()),
-            },
         };
 
         let mut mount_templates: HashMap<String, String> = HashMap::new();
@@ -301,12 +309,16 @@ mod test {
         path_templates.insert("default".into(), "{{path}}".into());
         path_templates.insert("var".into(), "{{path}}/{{var}}".into());
 
+        let mut metadata: HashMap<String, String> = HashMap::new();
+        metadata.insert("metadata-now".into(), "{{now}}".into());
+
         sync_mappings(
             &sync_args,
             &Config {
                 default_owner: "test-owner".into(),
                 default_mount_template: Some("default".into()),
                 default_path_template: Some("default".into()),
+                default_metadata: Some(metadata),
                 mount_templates: Some(mount_templates),
                 path_templates: Some(path_templates),
                 environments: vec![env.clone()],
@@ -336,18 +348,17 @@ mod test {
 
         let current_metadata = metadata.custom_metadata.unwrap_or_default();
         assert_eq!(
-            current_metadata.get("mustRotate"),
-            Some(&"true".to_string())
-        );
-
-        assert_eq!(current_metadata.get("maxTTL"), Some(&"90d".to_string()));
-        assert_eq!(
-            current_metadata.get("owner"),
-            Some(&"test-owner".to_string())
+            current_metadata.get("var"),
+            Some(&"path-from-var".to_string())
         );
         assert_eq!(
-            current_metadata.get("lastRotation"),
-            Some(&"2024-04-04T10:10:10.000Z".to_string())
+            current_metadata
+                .get("metadata-now")
+                .unwrap()
+                .chars()
+                .take(10)
+                .collect::<String>(),
+            now_date_string().chars().take(10).collect::<String>()
         );
 
         Ok(())

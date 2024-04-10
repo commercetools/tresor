@@ -77,7 +77,10 @@ defaultOwner: my-team
 defaultMountTemplate: "default"
 # default path template if not specified in command
 defaultPathTemplate: "default"
-
+# additional metadata for the sync command
+# supports templating
+defaultMetadata:
+  last-sync: "{{now}}"
 # named templates
 mountTemplates:
   default: kv2/repo/{{service}}
@@ -106,6 +109,9 @@ mappings:
       mount: other
       path: variable
       key: OTHER_FIELD
+    # metadata to be added/to overwrite the default values
+    metadata:
+      owner: custom-owner
     # conditionally process this mapping, this can be a jinja expression
     # when: false
 ```

@@ -211,12 +211,28 @@ async fn patch<T: DeserializeOwned>(
 
 pub async fn set_metadata(
     client: &VaultClient,
+    custom_metadata: HashMap<String, String>,
+    mount: &str,
+    path: &str,
+) -> Result<(), CliError> {
+    let mut metadata_request = SetSecretMetadataRequestBuilder::default();
+    metadata_request.custom_metadata(custom_metadata);
+
+    vaultrs::kv2::set_metadata(client, &mount, &path, Some(&mut metadata_request)).await?;
+    Ok(())
+}
+
+pub fn now_date_string() -> String {
+    Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string()
+}
+
+pub async fn set_metadata_from_args(
+    client: &VaultClient,
     metadata: &MetadataArgs,
     default_owner: &str,
     mount: &str,
     path: &str,
 ) -> Result<(), CliError> {
-    let mut metadata_request = SetSecretMetadataRequestBuilder::default();
     let mut custom_metadata: HashMap<String, String> = HashMap::new();
 
     custom_metadata.insert(
@@ -238,7 +254,7 @@ pub async fn set_metadata(
             metadata
                 .metadata_rotation_date
                 .clone()
-                .unwrap_or_else(|| Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string())
+                .unwrap_or_else(|| now_date_string())
                 .into(),
         );
     } else {
@@ -248,10 +264,7 @@ pub async fn set_metadata(
         )
     }
 
-    metadata_request.custom_metadata(custom_metadata);
-
-    vaultrs::kv2::set_metadata(client, &mount, &path, Some(&mut metadata_request)).await?;
-    Ok(())
+    self::set_metadata(client, custom_metadata, mount, path).await
 }
 
 #[get("/oidc/callback")]

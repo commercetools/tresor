@@ -11,7 +11,7 @@ use crate::{
     console::Console,
     error::CliError,
     template::track_context,
-    vault::{create_client, Vault},
+    vault::{create_client, now_date_string, Vault},
     VaultContextArgs,
 };
 
@@ -32,6 +32,7 @@ impl ContextConfig {
         let mut replacement_values: HashMap<String, String> = HashMap::new();
         replacement_values.insert("context".into(), self.name.clone());
         replacement_values.insert("environment".into(), env.to_string());
+        replacement_values.insert("now".into(), now_date_string());
 
         service.iter().for_each(|service_name| {
             replacement_values.insert("service".into(), service_name.to_string());
@@ -178,6 +179,7 @@ pub struct ValueMapping {
     pub value: Option<String>,
     pub target: ValueRef,
     pub when: Option<String>,
+    pub metadata: Option<HashMap<String, String>>,
 }
 
 impl Display for ValueMapping {
@@ -263,6 +265,7 @@ pub struct Config {
     pub default_owner: String,
     pub default_mount_template: Option<String>,
     pub default_path_template: Option<String>,
+    pub default_metadata: Option<HashMap<String, String>>,
     pub mount_templates: Option<HashMap<String, String>>,
     pub path_templates: Option<HashMap<String, String>>,
     pub environments: Vec<EnvironmentConfig>,
