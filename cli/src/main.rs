@@ -85,6 +85,10 @@ struct SyncCommandArgs {
     /// show the values that will be set, default is false, only the first characters are shown
     #[clap(long, env = "SYNC_SHOW_VALUES", default_value_t = false)]
     show_values: bool,
+
+    /// only metadata will be set
+    #[clap(long, env = "TRESOR_METADATA_ONLY", default_value_t = false)]
+    metadata_only: bool,
 }
 
 #[derive(Debug, Args)]

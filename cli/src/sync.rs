@@ -175,16 +175,25 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                         format!("{target_message_part}, with value: {source_value_message_part} from source: {}", source_message_part.unwrap_or("config value".into()));
 
                     if sync_args.apply {
-                        let set_response = vault
-                            .set_data(&target_mount, &target_path, target_values.clone())
-                            .await;
+                        if !sync_args.metadata_only {
+                            let set_response = vault
+                                .set_data(&target_mount, &target_path, target_values.clone())
+                                .await;
 
-                        set_response.map_err(|e| {
-                            CliError::RuntimeError(format!(
-                                "unable to set target: {target_message_part}: {}",
-                                e
-                            ))
-                        })?;
+                            set_response.map_err(|e| {
+                                CliError::RuntimeError(format!(
+                                    "unable to set target: {target_message_part}: {}",
+                                    e
+                                ))
+                            })?;
+
+                            println!("{} {message}", Console::success("updated data"))
+                        } else {
+                            println!(
+                                "{} {message}",
+                                Console::warning("not setting data, only metadata")
+                            )
+                        }
 
                         let mut metadata = config.default_metadata.clone().unwrap_or_default();
                         metadata.extend(mapping.metadata.clone().unwrap_or_default());
@@ -213,7 +222,7 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                             ))
                         })?;
 
-                        println!("{} {message}", Console::success("updated"))
+                        println!("{} {message}", Console::success("updated metadata"))
                     } else {
                         println!("{} {message}", Console::warning("would update"))
                     }
@@ -290,6 +299,7 @@ mod test {
         let sync_args = SyncCommandArgs {
             apply: true,
             show_values: true,
+            metadata_only: false,
             context: VaultContextArgs {
                 env: VaultEnvArgs {
                     environment: "test".into(),
