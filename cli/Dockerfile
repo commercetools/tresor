@@ -3,7 +3,14 @@ WORKDIR /usr/src/tresor
 COPY . .
 RUN cargo install --path .
 
-FROM debian:bullseye-slim
-RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+FROM debian:bookworm-slim
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /usr/local/cargo/bin/tresor /usr/local/bin/tresor
+
+RUN useradd -ms /bin/bash tresor
+USER tresor:tresor
+WORKDIR /home/tresor
+
+# port for the login callback
+EXPOSE 8250
 CMD ["tresor"]

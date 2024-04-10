@@ -12,9 +12,16 @@ an opinionated vault cli
 
 tresor cli is not a vault cli wrapper, it is more like a subset of the original vault cli
 
-### Install
+### Run
 
-currently you need to build from source, use `cargo install` or see [install.sh](install.sh)
+#### Docker
+```sh
+alias tresor="docker run -p 8250:8250 -v ~/.config:/home/tresor/.config adrobisch/tresor:latest tresor"
+tresor help
+```
+
+#### Locally
+use `cargo install` or see [install.sh](install.sh)
 
 ### Usage
 
