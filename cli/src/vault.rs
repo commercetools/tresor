@@ -317,7 +317,7 @@ async fn start_callback_server(env: EnvironmentConfig) -> std::io::Result<Server
             .service(oidc_callback)
             .app_data(web::Data::new(env.clone()))
     })
-    .bind(("localhost", 8250))?
+    .bind(("0.0.0.0", 8250))?
     .run())
 }
 
