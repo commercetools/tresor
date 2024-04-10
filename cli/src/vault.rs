@@ -369,7 +369,7 @@ pub async fn login(
         if (tries % 10) == 0 {
             println!(
                 "{}",
-                Console::highlight("waiting for callback for {tries} seconds")
+                Console::highlight(format!("waiting for callback for {tries} seconds"))
             );
         }
 

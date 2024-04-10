@@ -2030,7 +2030,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tresor-cli"
+name = "tresor"
 version = "0.1.0"
 dependencies = [
  "actix-web",
