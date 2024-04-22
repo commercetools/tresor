@@ -28,8 +28,9 @@ impl ContextConfig {
         env: &str,
         path: Option<String>,
         service: Option<String>,
+        variables: Option<HashMap<String, String>>,
     ) -> HashMap<String, String> {
-        let mut replacement_values: HashMap<String, String> = HashMap::new();
+        let mut replacement_values: HashMap<String, String> = variables.unwrap_or_default();
         replacement_values.insert("context".into(), self.name.clone());
         replacement_values.insert("environment".into(), env.to_string());
         replacement_values.insert("now".into(), now_date_string());
@@ -54,10 +55,11 @@ impl ContextConfig {
         environment_name: &str,
         path: Option<String>,
         service: Option<String>,
+        variables: Option<HashMap<String, String>>,
     ) -> Result<bool, CliError> {
         let env = Environment::new();
         let expression = env.compile_expression(expression)?;
-        let replacement_values = self.variables_map(environment_name, path, service);
+        let replacement_values = self.variables_map(environment_name, path, service, variables);
 
         let result = expression.eval(replacement_values)?;
         Ok(result.is_true())
@@ -69,8 +71,9 @@ impl ContextConfig {
         env: &str,
         path: Option<String>,
         service: Option<String>,
+        additional_variables: Option<HashMap<String, String>>,
     ) -> Result<String, CliError> {
-        let replacement_values = self.variables_map(env, path, service);
+        let replacement_values = self.variables_map(env, path, service, additional_variables);
         let (variables, undefined) = track_context(replacement_values.into());
 
         let env = Environment::new();
@@ -135,12 +138,14 @@ impl ContextConfig {
             &env.name,
             context_args.path.clone(),
             context_args.service.clone(),
+            context_args.variables_as_map(),
         )?;
         let path = self.replace_variables(
             &path_template,
             &env.name,
             context_args.path.clone(),
             context_args.service.clone(),
+            context_args.variables_as_map(),
         )?;
 
         Ok((mount, path))
@@ -391,12 +396,15 @@ mod test {
 
     #[tokio::test]
     async fn test_replacements() -> Result<(), CliError> {
-        let mut variables: HashMap<String, String> = HashMap::new();
-        variables.insert("var1".into(), "var1".into());
+        let mut context_variables: HashMap<String, String> = HashMap::new();
+        context_variables.insert("var1".into(), "var1".into());
+
+        let mut additional_variables: HashMap<String, String> = HashMap::new();
+        additional_variables.insert("var2".into(), "value2".into());
 
         let context = ContextConfig {
             name: "test".into(),
-            variables: Some(variables),
+            variables: Some(context_variables),
         };
 
         // missing path and service
@@ -406,20 +414,28 @@ mod test {
                 "env",
                 None,
                 None,
+                Some(additional_variables.clone())
             )
             .is_err());
 
         assert_eq!(
             context.replace_variables(
-                "{{var1}}/{{environment}}/{{service}}/{{path}}",
+                "{{var1}}/{{environment}}/{{service}}/{{path}}/{{var2}}",
                 "env",
                 Some("test-path".into()),
                 Some("test-service".into()),
+                Some(additional_variables.clone())
             )?,
-            "var1/env/test-service/test-path"
+            "var1/env/test-service/test-path/value2"
         );
 
-        match context.replace_variables("{{var}}", "env", None, None) {
+        match context.replace_variables(
+            "{{var}}",
+            "env",
+            None,
+            None,
+            Some(additional_variables.clone()),
+        ) {
             Err(CliError::TemplateError(_)) => (),
             _ => {
                 return Err(CliError::RuntimeError(
@@ -428,7 +444,13 @@ mod test {
             }
         }
 
-        match context.replace_variables("{var}}", "env", None, None) {
+        match context.replace_variables(
+            "{var}}",
+            "env",
+            None,
+            None,
+            Some(additional_variables.clone()),
+        ) {
             Err(CliError::TemplateError(_)) => (),
             _ => {
                 return Err(CliError::RuntimeError(

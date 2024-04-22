@@ -40,6 +40,7 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                         &env.name,
                         sync_args.context.path.clone(),
                         sync_args.context.service.clone(),
+                        sync_args.context.variables_as_map(),
                     )?;
                     if !result {
                         println!(
@@ -67,6 +68,7 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                                 context: context.name.clone(),
                                 service: sync_args.context.service.clone(),
                                 path: sync_args.context.path.clone(),
+                                variables: sync_args.context.variables.clone(),
                                 mount_template: Some(source_ref.mount.clone()),
                                 path_template: Some(source_ref.path.clone()),
                             },
@@ -110,6 +112,7 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                             },
                             context: context.name.clone(),
                             service: sync_args.context.service.clone(),
+                            variables: sync_args.context.variables.clone(),
                             path: sync_args.context.path.clone(),
                             mount_template: Some(target.mount.clone()),
                             path_template: Some(target.path.clone()),
@@ -152,6 +155,7 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                         &env.name,
                         sync_args.context.path.clone(),
                         sync_args.context.service.clone(),
+                        sync_args.context.variables_as_map(),
                     )?;
 
                     target_values.insert(target.key.clone(), source_value_with_variables.clone());
@@ -189,10 +193,7 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
 
                             println!("{} {message}", Console::success("updated data"))
                         } else {
-                            println!(
-                                "{} {message}",
-                                Console::warning("not setting data, only metadata")
-                            )
+                            println!("{}", Console::warning("not setting data, only metadata"))
                         }
 
                         let mut metadata = config.default_metadata.clone().unwrap_or_default();
@@ -204,12 +205,13 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                                 &env.name,
                                 sync_args.context.path.clone(),
                                 sync_args.context.service.clone(),
+                                sync_args.context.variables_as_map(),
                             )?;
                         }
 
                         let metadata_response = crate::vault::set_metadata(
                             vault_client,
-                            metadata,
+                            metadata.clone(),
                             &target_mount,
                             &target_path,
                         )
@@ -222,9 +224,17 @@ pub async fn sync_mappings(sync_args: &SyncCommandArgs, config: &Config) -> Resu
                             ))
                         })?;
 
-                        println!("{} {message}", Console::success("updated metadata"))
+                        println!(
+                            "{} for {target_message_part} with {:?}",
+                            Console::success("updated metadata"),
+                            metadata
+                        )
                     } else {
-                        println!("{} {message}", Console::warning("would update"))
+                        println!(
+                            "{} (metadata only: {}) {message}",
+                            Console::warning("would update"),
+                            sync_args.metadata_only
+                        )
                     }
                 }
                 None => println!("no source value found for {mapping}"),
@@ -309,6 +319,7 @@ mod test {
                 path: Some("test-path".into()),
                 mount_template: None,
                 path_template: None,
+                variables: None,
             },
         };
 

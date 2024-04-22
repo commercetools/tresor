@@ -47,6 +47,28 @@ struct VaultContextArgs {
     /// path template to use, currently does nothing in sync command
     #[clap(long, env = "TRESOR_PATH_TEMPLATE")]
     path_template: Option<String>,
+
+    /// additional variables, passed as key value pairs, example: '--variables VAR1=foo --variables VAR2=bar'
+    #[clap(long, env = "TRESOR_VARIABLES")]
+    variables: Option<Vec<String>>,
+}
+
+impl VaultContextArgs {
+    fn variables_as_map(&self) -> Option<HashMap<String, String>> {
+        match self.variables.clone() {
+            Some(vars) => {
+                let mut map: HashMap<String, String> = HashMap::new();
+                for variable in vars {
+                    let mut split = variable.split("=");
+                    if let (Some(key), Some(value)) = (split.next(), split.next()) {
+                        map.insert(key.to_string(), value.to_string());
+                    }
+                }
+                Some(map)
+            }
+            None => None,
+        }
+    }
 }
 
 #[derive(Subcommand, Debug)]
