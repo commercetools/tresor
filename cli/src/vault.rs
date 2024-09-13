@@ -327,7 +327,7 @@ async fn execute_open_command(url: impl AsRef<str>, cmd: &str) {
     match output {
         Ok(_) => (),
         Err(_) => {
-            println!("auth url: {}", cmd.to_string());
+            println!("auth url: {}", url.as_ref());
         }
     }
 }
