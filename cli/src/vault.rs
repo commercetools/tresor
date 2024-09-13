@@ -19,6 +19,7 @@ use crate::{
 };
 
 static AUTH_RESPONSE: Lazy<Mutex<Option<VaultAuthResponse>>> = Lazy::new(|| Mutex::new(None));
+static SHUTDOWN_SIGNAL: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
@@ -371,10 +372,21 @@ pub async fn login(
 
     print_or_open_browser(auth_url_response.auth_url).await;
 
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.unwrap();
+        *SHUTDOWN_SIGNAL.lock().await = true;
+    });
+
     let mut tries = 0;
     loop {
         let auth_response: tokio::sync::MutexGuard<'_, Option<VaultAuthResponse>> =
             AUTH_RESPONSE.lock().await;
+
+        let shutdown_signal = SHUTDOWN_SIGNAL.lock().await;
+        if *shutdown_signal {
+            handle.stop(true).await;
+            return Err(CliError::AuthError(Console::error("canceled")));
+        }
 
         match auth_response.as_ref() {
             Some(auth) => {
