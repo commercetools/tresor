@@ -321,32 +321,32 @@ async fn start_callback_server(env: EnvironmentConfig) -> std::io::Result<Server
     .run())
 }
 
+#[cfg(target_os = "macos")]
 async fn print_or_open_browser(url: String) {
-    if cfg!(target_os = "macos") {
-        let output  = Command::new("open")
-            .args([url.clone()])
-            .output()
-            .await;
-        match output {
-            Ok(_) => (),
-            Err(_) => {
-                println!("auth url: {}", url);
-            }
+    let output = Command::new("open").args([url.clone()]).output().await;
+    match output {
+        Ok(_) => (),
+        Err(_) => {
+            println!("auth url: {}", url);
         }
-    } else if cfg!(target_os = "linux") {
-        let output = Command::new("xdg-open")
-            .arg(url.clone())
-            .output()
-            .await;
-            match output {
-                Ok(_) => (),
-                Err(_) => {
-                    println!("auth url: {}", url);
-                }
-            }
-    } else {
-        println!("auth url: {}", url);
-    };
+    }
+}
+
+#[cfg(target_os = "linux")]
+async fn print_or_open_browser(url: String) {
+    let output = Command::new("open").args([url.clone()]).output().await;
+    match output {
+        Ok(_) => (),
+        Err(_) => {
+            println!("auth url: {}", url);
+        }
+    }
+}
+
+// And this function only gets compiled if the target OS is *not* linux
+#[cfg(all(not(target_os = "linux"), not(target_os = "macos")))]
+fn are_youprint_or_open_browser_on_linux(url: String) {
+    println!("auth url: {}", url);
 }
 
 pub async fn login(
