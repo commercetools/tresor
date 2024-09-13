@@ -322,26 +322,24 @@ async fn start_callback_server(env: EnvironmentConfig) -> std::io::Result<Server
     .run())
 }
 
-#[cfg(target_os = "macos")]
-async fn print_or_open_browser(url: String) {
-    let output = Command::new("open").args([url.clone()]).output().await;
+async fn execute_open_command(url: impl AsRef<str>, cmd: &str) {
+    let output = Command::new(cmd).args([url.as_ref()]).output().await;
     match output {
         Ok(_) => (),
         Err(_) => {
-            println!("auth url: {}", url);
+            println!("auth url: {}", cmd.to_string());
         }
     }
 }
 
+#[cfg(target_os = "macos")]
+async fn print_or_open_browser(url: String) {
+    execute_open_command(url, "open").await
+}
+
 #[cfg(target_os = "linux")]
 async fn print_or_open_browser(url: String) {
-    let output = Command::new("xdg-open").args([url.clone()]).output().await;
-    match output {
-        Ok(_) => (),
-        Err(_) => {
-            println!("auth url: {}", url);
-        }
-    }
+    execute_open_command(url, "xdg-open").await
 }
 
 // And this function only gets compiled if the target OS is *not* linux
