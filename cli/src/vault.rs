@@ -335,7 +335,7 @@ async fn print_or_open_browser(url: String) {
 
 #[cfg(target_os = "linux")]
 async fn print_or_open_browser(url: String) {
-    let output = Command::new("open").args([url.clone()]).output().await;
+    let output = Command::new("xdg-open").args([url.clone()]).output().await;
     match output {
         Ok(_) => (),
         Err(_) => {
@@ -346,7 +346,7 @@ async fn print_or_open_browser(url: String) {
 
 // And this function only gets compiled if the target OS is *not* linux
 #[cfg(all(not(target_os = "linux"), not(target_os = "macos")))]
-fn are_youprint_or_open_browser_on_linux(url: String) {
+fn print_or_open_browser(url: String) {
     println!("auth url: {}", url);
 }
 
