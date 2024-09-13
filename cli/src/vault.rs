@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use actix_web::{dev::Server, get, web, App, HttpResponse, HttpServer};
-
 use chrono::Utc;
 use once_cell::sync::Lazy;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use tokio::process::Command;
 use tokio::sync::Mutex;
 use vaultrs::{
     api::kv2::requests::SetSecretMetadataRequestBuilder,
@@ -321,6 +321,34 @@ async fn start_callback_server(env: EnvironmentConfig) -> std::io::Result<Server
     .run())
 }
 
+async fn print_or_open_browser(url: String) {
+    if cfg!(target_os = "macos") {
+        let output  = Command::new("open")
+            .args([url.clone()])
+            .output()
+            .await;
+        match output {
+            Ok(_) => (),
+            Err(_) => {
+                println!("auth url: {}", url);
+            }
+        }
+    } else if cfg!(target_os = "linux") {
+        let output = Command::new("xdg-open")
+            .arg(url.clone())
+            .output()
+            .await;
+            match output {
+                Ok(_) => (),
+                Err(_) => {
+                    println!("auth url: {}", url);
+                }
+            }
+    } else {
+        println!("auth url: {}", url);
+    };
+}
+
 pub async fn login(
     config: &Config,
     environment: &str,
@@ -341,7 +369,7 @@ pub async fn login(
     let handle = server.handle();
     tokio::spawn(server);
 
-    println!("auth url: {}", auth_url_response.auth_url);
+    print_or_open_browser(auth_url_response.auth_url).await;
 
     let mut tries = 0;
     loop {
