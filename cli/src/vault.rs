@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use actix_web::{dev::Server, get, web, App, HttpResponse, HttpServer};
-
 use chrono::Utc;
 use once_cell::sync::Lazy;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use tokio::process::Command;
 use tokio::sync::Mutex;
 use vaultrs::{
     api::kv2::requests::SetSecretMetadataRequestBuilder,
@@ -19,6 +19,7 @@ use crate::{
 };
 
 static AUTH_RESPONSE: Lazy<Mutex<Option<VaultAuthResponse>>> = Lazy::new(|| Mutex::new(None));
+static SHUTDOWN_SIGNAL: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
@@ -321,6 +322,32 @@ async fn start_callback_server(env: EnvironmentConfig) -> std::io::Result<Server
     .run())
 }
 
+async fn execute_open_command(url: impl AsRef<str>, cmd: &str) {
+    let output = Command::new(cmd).args([url.as_ref()]).output().await;
+    match output {
+        Ok(_) => (),
+        Err(_) => {
+            println!("auth url: {}", cmd.to_string());
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+async fn print_or_open_browser(url: String) {
+    execute_open_command(url, "open").await
+}
+
+#[cfg(target_os = "linux")]
+async fn print_or_open_browser(url: String) {
+    execute_open_command(url, "xdg-open").await
+}
+
+// And this function only gets compiled if the target OS is *not* linux
+#[cfg(all(not(target_os = "linux"), not(target_os = "macos")))]
+fn print_or_open_browser(url: String) {
+    println!("auth url: {}", url);
+}
+
 pub async fn login(
     config: &Config,
     environment: &str,
@@ -341,12 +368,23 @@ pub async fn login(
     let handle = server.handle();
     tokio::spawn(server);
 
-    println!("auth url: {}", auth_url_response.auth_url);
+    print_or_open_browser(auth_url_response.auth_url).await;
+
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.unwrap();
+        *SHUTDOWN_SIGNAL.lock().await = true;
+    });
 
     let mut tries = 0;
     loop {
         let auth_response: tokio::sync::MutexGuard<'_, Option<VaultAuthResponse>> =
             AUTH_RESPONSE.lock().await;
+
+        let shutdown_signal = SHUTDOWN_SIGNAL.lock().await;
+        if *shutdown_signal {
+            handle.stop(true).await;
+            return Err(CliError::AuthError(Console::error("canceled")));
+        }
 
         match auth_response.as_ref() {
             Some(auth) => {
