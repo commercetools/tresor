@@ -1,6 +1,6 @@
 # tresor  🔒 
 
-*tesor* ( **[tʁeˈzoːɐ̯]** ) is a Scala library to access secrets (credentials etc.) from different sources.
+*tresor* ( **[tʁeˈzoːɐ̯]** ) is a Scala library to access secrets (credentials etc.) from different sources.
 
 ## Features
  - Provider for AES-256 encryption
